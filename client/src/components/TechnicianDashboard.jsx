@@ -22,10 +22,15 @@ export default function TechnicianDashboard() {
   const [profileMessage, setProfileMessage] = useState('')
   const [profileError, setProfileError] = useState('')
 
+  // Role request state
+  const [roleRequest, setRoleRequest] = useState(null)
+  const [roleRequestMessage, setRoleRequestMessage] = useState('')
+
   useEffect(() => {
     loadStatus()
     loadRecords()
     getLocation()
+    loadRoleRequest()
   }, [])
 
   useEffect(() => {
@@ -71,6 +76,29 @@ export default function TechnicianDashboard() {
     const records = getAttendanceRecords()
     const userRecords = records.filter(r => r.user_id === user.id)
     setRecords(userRecords.slice(-10).reverse())
+  }
+
+  const loadRoleRequest = async () => {
+    try {
+      const response = await api.get(`/auth/role-request/${user.id}`)
+      setRoleRequest(response.data)
+    } catch (error) {
+      console.error('Failed to load role request:', error)
+    }
+  }
+
+  const handleRoleRequest = async () => {
+    setRoleRequestMessage('')
+    try {
+      await api.post('/auth/role-request', {
+        user_id: user.id,
+        requested_role: 'admin'
+      })
+      setRoleRequestMessage('Request berhasil dikirim! Menunggu persetujuan admin.')
+      loadRoleRequest()
+    } catch (error) {
+      setRoleRequestMessage(error.response?.data?.error || 'Gagal mengirim request')
+    }
   }
 
   const handleCheckIn = async () => {
@@ -222,87 +250,130 @@ export default function TechnicianDashboard() {
 
       case 'profile':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Edit Profil</h2>
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Edit Profil</h2>
 
-            {profileMessage && (
-              <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-4 rounded-lg mb-4">
-                {profileMessage}
-              </div>
-            )}
-            {profileError && (
-              <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg mb-4">
-                {profileError}
-              </div>
-            )}
+              {profileMessage && (
+                <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 p-4 rounded-lg mb-4">
+                  {profileMessage}
+                </div>
+              )}
+              {profileError && (
+                <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-4 rounded-lg mb-4">
+                  {profileError}
+                </div>
+              )}
 
-            <form onSubmit={handleProfileUpdate} className="space-y-6">
-              <div className="flex items-center gap-6 mb-6">
-                <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center">
-                  <span className="text-white text-2xl font-bold">{profileName.charAt(0).toUpperCase()}</span>
+              <form onSubmit={handleProfileUpdate} className="space-y-6">
+                <div className="flex items-center gap-6 mb-6">
+                  <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center">
+                    <span className="text-white text-2xl font-bold">{profileName.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">{user.name}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Teknisi</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-800 dark:text-white">{user.name}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Teknisi</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama</label>
-                  <input
-                    type="text"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={profileEmail}
-                    onChange={(e) => setProfileEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Ubah Password (Opsional)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Saat Ini</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama</label>
                     <input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      type="text"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                      placeholder="Kosongkan jika tidak ingin ubah"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Baru</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
                     <input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
+                      type="email"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-                      placeholder="Kosongkan jika tidak ingin ubah"
+                      required
                     />
                   </div>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                className="bg-secondary text-white px-6 py-2.5 rounded-lg hover:bg-secondary-dark transition-colors"
-              >
-                Simpan Perubahan
-              </button>
-            </form>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Ubah Password (Opsional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Saat Ini</label>
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                        placeholder="Kosongkan jika tidak ingin ubah"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password Baru</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                        placeholder="Kosongkan jika tidak ingin ubah"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-secondary text-white px-6 py-2.5 rounded-lg hover:bg-secondary-dark transition-colors"
+                >
+                  Simpan Perubahan
+                </button>
+              </form>
+            </div>
+
+            {/* Role Request Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Request Role Admin</h2>
+              
+              {roleRequestMessage && (
+                <div className={`p-4 rounded-lg mb-4 ${
+                  roleRequestMessage.includes('berhasil') 
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                }`}>
+                  {roleRequestMessage}
+                </div>
+              )}
+
+              {roleRequest ? (
+                <div className="flex items-center gap-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-yellow-800 dark:text-yellow-200">Menunggu Persetujuan</p>
+                    <p className="text-sm text-yellow-600 dark:text-yellow-400">Request Anda sedang ditinjau oleh admin</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Ingin menjadi admin? Kirim request untuk meningkatkan role Anda.
+                  </p>
+                  <button
+                    onClick={handleRoleRequest}
+                    className="bg-secondary text-white px-6 py-2.5 rounded-lg hover:bg-secondary-dark transition-colors"
+                  >
+                    Minta Jadi Admin
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )
 

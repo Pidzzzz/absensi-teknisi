@@ -38,6 +38,7 @@ export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState('attendance')
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
+  const [roleRequests, setRoleRequests] = useState([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedUser, setSelectedUser] = useState('')
 
@@ -51,6 +52,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     loadUsers()
+    loadRoleRequests()
   }, [])
 
   useEffect(() => {
@@ -70,6 +72,25 @@ export default function AdminDashboard() {
       setUsers(response.data)
     } catch (error) {
       console.error('Failed to load users:', error)
+    }
+  }
+
+  const loadRoleRequests = async () => {
+    try {
+      const response = await api.get('/auth/role-requests')
+      setRoleRequests(response.data)
+    } catch (error) {
+      console.error('Failed to load role requests:', error)
+    }
+  }
+
+  const handleRoleRequest = async (requestId, status) => {
+    try {
+      await api.put(`/auth/role-requests/${requestId}`, { status })
+      loadRoleRequests()
+      loadUsers()
+    } catch (error) {
+      console.error('Failed to handle role request:', error)
     }
   }
 
@@ -210,47 +231,115 @@ export default function AdminDashboard() {
         )
 
       case 'technicians':
+        const pendingRequests = roleRequests.filter(r => r.status === 'pending')
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Daftar Teknisi</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Nama</th>
-                    <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Email</th>
-                    <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Role</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
-                            <span className="text-secondary font-semibold">
-                              {u.name.charAt(0).toUpperCase()}
+          <div className="space-y-6">
+            {/* Pending Role Requests */}
+            {pendingRequests.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/20">
+                  <h2 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Request Role Pending</h2>
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">{pendingRequests.length} request menunggu persetujuan</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-700">
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Nama</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Request Role</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Tanggal</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {pendingRequests.map((request) => (
+                        <tr key={request.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
+                                <span className="text-secondary font-semibold">
+                                  {request.user_name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <span className="font-medium text-gray-800 dark:text-white">{request.user_name}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{request.user_email}</td>
+                          <td className="py-4 px-6">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
+                              {request.requested_role === 'admin' ? 'Admin' : 'Teknisi'}
                             </span>
-                          </div>
-                          <span className="font-medium text-gray-800 dark:text-white">{u.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{u.email}</td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                          u.role === 'admin'
-                            ? 'bg-secondary/10 text-secondary'
-                            : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
-                        }`}>
-                          {u.role === 'admin' ? 'Admin' : 'Teknisi'}
-                        </span>
-                      </td>
+                          </td>
+                          <td className="py-4 px-6 text-gray-500 dark:text-gray-400 text-sm">
+                            {new Date(request.created_at).toLocaleDateString('id-ID')}
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRoleRequest(request.id, 'approved')}
+                                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium transition-colors"
+                              >
+                                Terima
+                              </button>
+                              <button
+                                onClick={() => handleRoleRequest(request.id, 'rejected')}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
+                              >
+                                Tolak
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* All Users */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Daftar Pengguna</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700">
+                      <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Nama</th>
+                      <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                      <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Role</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {users.map((u) => (
+                      <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
+                              <span className="text-secondary font-semibold">
+                                {u.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="font-medium text-gray-800 dark:text-white">{u.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{u.email}</td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                            u.role === 'admin'
+                              ? 'bg-secondary/10 text-secondary'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                          }`}>
+                            {u.role === 'admin' ? 'Admin' : 'Teknisi'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )

@@ -73,4 +73,67 @@ router.put('/profile/:id', async (req, res) => {
   }
 });
 
+// Role request routes
+router.post('/role-request', (req, res) => {
+  try {
+    const { user_id, requested_role } = req.body;
+    
+    const existing = db.prepare('SELECT * FROM role_requests WHERE user_id = ? AND status = ?').get(user_id, 'pending');
+    if (existing) {
+      return res.status(400).json({ error: 'Anda sudah memiliki request yang pending' });
+    }
+    
+    const result = db.prepare('INSERT INTO role_requests (user_id, requested_role) VALUES (?, ?)').run(user_id, requested_role);
+    res.json({ id: result.lastInsertRowid, message: 'Request berhasil dikirim' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/role-requests', (req, res) => {
+  try {
+    const requests = db.prepare(`
+      SELECT r.*, u.name as user_name, u.email as user_email 
+      FROM role_requests r 
+      JOIN users u ON r.user_id = u.id 
+      ORDER BY r.created_at DESC
+    `).all();
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/role-requests/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const request = db.prepare('SELECT * FROM role_requests WHERE id = ?').get(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Request tidak ditemukan' });
+    }
+    
+    db.prepare('UPDATE role_requests SET status = ? WHERE id = ?').run(status, id);
+    
+    if (status === 'approved') {
+      db.prepare('UPDATE users SET role = ? WHERE id = ?').run(request.requested_role, request.user_id);
+    }
+    
+    res.json({ message: `Request ${status === 'approved' ? 'diterima' : 'ditolak'}` });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/role-request/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const request = db.prepare('SELECT * FROM role_requests WHERE user_id = ? AND status = ?').get(userId, 'pending');
+    res.json(request || null);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
