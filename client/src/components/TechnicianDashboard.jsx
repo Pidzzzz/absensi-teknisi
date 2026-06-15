@@ -42,7 +42,7 @@ export default function TechnicianDashboard() {
       const userRecords = records.filter(r => r.user_id === user.id)
       const lastCheckIn = userRecords.find(r => r.type === 'check-in')
       const lastCheckOut = userRecords.find(r => r.type === 'check-out')
-      
+
       setStatus({
         isCheckedIn: lastCheckIn && (!lastCheckOut || lastCheckOut.timestamp < lastCheckIn.timestamp)
       })
@@ -65,7 +65,7 @@ export default function TechnicianDashboard() {
         lat: location?.lat,
         lng: location?.lng
       }
-      
+
       saveAttendanceRecord(record)
       setStatus({ isCheckedIn: true })
       loadRecords()
@@ -84,7 +84,7 @@ export default function TechnicianDashboard() {
         lat: location?.lat,
         lng: location?.lng
       }
-      
+
       saveAttendanceRecord(record)
       setStatus({ isCheckedIn: false })
       loadRecords()
@@ -95,13 +95,13 @@ export default function TechnicianDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
+      <nav className="bg-primary shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Technician Dashboard</h1>
+          <h1 className="text-xl font-bold text-white">Dashboard Teknisi</h1>
           <div className="flex items-center gap-4">
             <SyncButton onSyncComplete={loadRecords} />
-            <span className="text-gray-600">{user.name}</span>
-            <button onClick={logout} className="text-red-500 hover:text-red-600">
+            <span className="text-gray-300">{user.name}</span>
+            <button onClick={logout} className="text-red-400 hover:text-red-300">
               Logout
             </button>
           </div>
@@ -110,25 +110,25 @@ export default function TechnicianDashboard() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Attendance Status</h2>
+          <h2 className="text-lg font-semibold mb-4 text-primary">Status Absensi</h2>
           <div className="flex items-center gap-4 mb-4">
             <div className={`w-4 h-4 rounded-full ${status.isCheckedIn ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-lg">
-              {status.isCheckedIn ? 'Checked In' : 'Checked Out'}
+            <span className="text-lg text-primary">
+              {status.isCheckedIn ? 'Sudah Check In' : 'Belum Check In'}
             </span>
           </div>
-          
+
           {location && (
             <p className="text-sm text-gray-500 mb-4">
-              Location: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+              Lokasi: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
             </p>
           )}
-          
+
           <div className="flex gap-4">
             <button
               onClick={handleCheckIn}
               disabled={status.isCheckedIn || loading}
-              className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-secondary text-white px-6 py-3 rounded-lg hover:bg-secondary-dark disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Check In
             </button>
@@ -143,10 +143,10 @@ export default function TechnicianDashboard() {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
+          <h2 className="text-lg font-semibold mb-4 text-primary">Aktivitas Terakhir</h2>
           <div className="space-y-3">
             {records.length === 0 ? (
-              <p className="text-gray-500">No records yet</p>
+              <p className="text-gray-500">Belum ada riwayat</p>
             ) : (
               records.map((record, index) => (
                 <div key={index} className="flex justify-between items-center py-2 border-b">
@@ -166,7 +166,7 @@ export default function TechnicianDashboard() {
                     </span>
                     {!record.synced && (
                       <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                        Not synced
+                        Belum sync
                       </span>
                     )}
                   </div>
