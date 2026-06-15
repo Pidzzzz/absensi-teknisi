@@ -436,49 +436,122 @@ export default function TechnicianDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors">
-      {/* Header */}
-      <header className="bg-primary dark:bg-gray-800 shadow-sm transition-colors">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-white">Dashboard Teknisi</h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-gray-300 hover:text-white transition-colors"
-              title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-            >
-              {isDark ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">{user.name.charAt(0).toUpperCase()}</span>
-              </div>
-              <span className="text-gray-300">{user.name}</span>
-            </div>
-            <button onClick={logout} className="text-gray-400 hover:text-white transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
+      {/* Sidebar - Desktop */}
+      <div className="hidden md:flex w-72 bg-primary dark:bg-gray-800 flex-col transition-colors">
+        <div className="p-6 border-b border-gray-800 dark:border-gray-700">
+          <h1 className="text-xl font-bold text-white tracking-tight">Absensi Teknisi</h1>
+          <p className="text-sm text-gray-400 mt-1">Teknisi Panel</p>
         </div>
-      </header>
+
+        <nav className="flex-1 p-4 space-y-1">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
+                activeTab === item.id
+                  ? 'bg-secondary text-white shadow-lg shadow-secondary/30'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white dark:hover:bg-gray-700/50'
+              }`}
+            >
+              {item.icon}
+              <span className="font-medium">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-gray-800 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold">{user.name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium truncate">{user.name}</p>
+              <p className="text-xs text-gray-400">Teknisi</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span>Keluar</span>
+          </button>
+        </div>
+      </div>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
-        {renderContent()}
-      </main>
+      <div className="flex-1 flex flex-col">
+        {/* Header - Mobile */}
+        <header className="bg-primary dark:bg-gray-800 shadow-sm md:hidden transition-colors">
+          <div className="px-4 py-4 flex justify-between items-center">
+            <h1 className="text-xl font-bold text-white">Dashboard Teknisi</h1>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-gray-300 hover:text-white transition-colors"
+                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+              >
+                {isDark ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-semibold">{user.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <span className="text-gray-300">{user.name}</span>
+              </div>
+            </div>
+          </div>
+        </header>
 
-      {/* Bottom Navigation */}
-      <nav className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden transition-colors">
+        {/* Main Content */}
+        <main className="flex-1 p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-primary dark:text-white">
+                  {navItems.find(m => m.id === activeTab)?.label}
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 mt-1">
+                  {activeTab === 'home' && 'Kelola absensi harian Anda'}
+                  {activeTab === 'profile' && 'Kelola informasi profil Anda'}
+                  {activeTab === 'settings' && 'Pengaturan aplikasi'}
+                </p>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className="hidden md:block p-2.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+              >
+                {isDark ? (
+                  <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+
+      {/* Bottom Navigation - Mobile */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden transition-colors">
         <div className="flex justify-around py-2">
           {navItems.map((item) => (
             <button
