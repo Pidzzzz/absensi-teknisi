@@ -4,6 +4,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { saveAttendanceRecord, getAttendanceRecords } from '../utils/storage'
 import api from '../utils/api'
 import SyncButton from './SyncButton'
+import NotificationBell from './NotificationBell'
 
 export default function TechnicianDashboard() {
   const { user, logout, setUser } = useAuth()
@@ -470,6 +471,7 @@ export default function TechnicianDashboard() {
               <p className="text-white font-medium truncate">{user.name}</p>
               <p className="text-xs text-gray-400">Teknisi</p>
             </div>
+            <NotificationBell />
           </div>
           <button
             onClick={logout}

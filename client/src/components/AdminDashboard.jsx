@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import api from '../utils/api'
+import NotificationBell from './NotificationBell'
 
 const menuItems = [
   { id: 'attendance', label: 'Absensi', icon: (
@@ -552,6 +553,7 @@ export default function AdminDashboard() {
               <p className="text-white font-medium truncate">{user.name}</p>
               <p className="text-xs text-gray-400">Administrator</p>
             </div>
+            <NotificationBell />
           </div>
           <button
             onClick={logout}

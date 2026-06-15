@@ -61,6 +61,11 @@ router.put('/users/:id/role', (req, res) => {
     }
     
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+    
+    // Create notification
+    const roleLabel = role === 'admin' ? 'Admin' : 'Teknisi';
+    createNotification(id, 'Role Berubah', `Role Anda telah diubah menjadi ${roleLabel} oleh admin.`);
+    
     res.json({ id: user.id, name: user.name, email: user.email, role });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -139,6 +144,9 @@ router.put('/role-requests/:id', (req, res) => {
     
     if (status === 'approved') {
       db.prepare('UPDATE users SET role = ? WHERE id = ?').run(request.requested_role, request.user_id);
+      createNotification(request.user_id, 'Request Diterima', 'Selamat! Request role admin Anda telah diterima.');
+    } else {
+      createNotification(request.user_id, 'Request Ditolak', 'Maaf, request role admin Anda telah ditolak.');
     }
     
     res.json({ message: `Request ${status === 'approved' ? 'diterima' : 'ditolak'}` });
@@ -157,4 +165,50 @@ router.get('/role-request/:userId', (req, res) => {
   }
 });
 
+// Notification routes
+router.get('/notifications/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const notifications = db.prepare('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20').all(userId);
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/notifications/:userId/unread', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0').get(userId);
+    res.json({ count: result.count });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/notifications/:id/read', (req, res) => {
+  try {
+    const { id } = req.params;
+    db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').run(id);
+    res.json({ message: 'Notification marked as read' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.put('/notifications/read-all/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ?').run(userId);
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+function createNotification(userId, title, message) {
+  db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(userId, title, message);
+}
+
 module.exports = router;
+module.exports.createNotification = createNotification;
