@@ -49,10 +49,15 @@ router.get('/users', (req, res) => {
 router.put('/users/:id/role', (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const { role, requester_id } = req.body;
     
     if (!['admin', 'technician'].includes(role)) {
       return res.status(400).json({ error: 'Role tidak valid' });
+    }
+    
+    const requester = db.prepare('SELECT * FROM users WHERE id = ?').get(requester_id);
+    if (!requester || requester.role !== 'admin') {
+      return res.status(403).json({ error: 'Hanya admin yang bisa mengubah role' });
     }
     
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
@@ -62,7 +67,6 @@ router.put('/users/:id/role', (req, res) => {
     
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
     
-    // Create notification
     const roleLabel = role === 'admin' ? 'Admin' : 'Teknisi';
     createNotification(id, 'Role Berubah', `Role Anda telah diubah menjadi ${roleLabel} oleh admin.`);
     

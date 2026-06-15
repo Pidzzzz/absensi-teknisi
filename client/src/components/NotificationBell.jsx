@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../utils/api'
 
-export default function NotificationBell() {
+export default function NotificationBell({ onNotificationClick }) {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -72,7 +72,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-300 hover:text-white transition-colors"
+        className="relative p-2 text-gray-300 hover:text-white transition-colors rounded-lg hover:bg-white/10"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -83,9 +83,9 @@ export default function NotificationBell() {
           </span>
         )}
       </button>
-
+ 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden z-50">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="font-semibold text-gray-800 dark:text-white">Notifikasi</h3>
             {unreadCount > 0 && (
@@ -107,7 +107,14 @@ export default function NotificationBell() {
               notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                  onClick={() => {
+                    if (!notification.is_read) {
+                      markAsRead(notification.id)
+                    }
+                    if (onNotificationClick) {
+                      onNotificationClick(notification)
+                    }
+                  }}
                   className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
                     !notification.is_read ? 'bg-secondary/5' : ''
                   }`}
@@ -116,7 +123,7 @@ export default function NotificationBell() {
                     <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                       !notification.is_read ? 'bg-secondary' : 'bg-transparent'
                     }`} />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-800 dark:text-white text-sm">
                         {notification.title}
                       </p>

@@ -7,11 +7,19 @@ router.post('/sync', (req, res) => {
   try {
     const { records } = req.body;
     
-    const insert = db.prepare('INSERT INTO attendance (user_id, type, timestamp, lat, lng, synced) VALUES (?, ?, ?, ?, ?, 1)');
+    const insert = db.prepare('INSERT INTO attendance (user_id, type, timestamp, lat, lng, synced, assignment_id, location_id) VALUES (?, ?, ?, ?, ?, 1, ?, ?)');
     
     const insertMany = db.transaction((items) => {
       for (const item of items) {
-        insert.run(item.user_id, item.type, item.timestamp, item.lat, item.lng);
+        insert.run(
+          item.user_id,
+          item.type,
+          item.timestamp,
+          item.lat,
+          item.lng,
+          item.assignment_id !== undefined ? item.assignment_id : null,
+          item.location_id !== undefined ? item.location_id : null
+        );
       }
     });
     
@@ -26,20 +34,25 @@ router.get('/', (req, res) => {
   try {
     const { user_id, date } = req.query;
     
-    let query = 'SELECT * FROM attendance WHERE 1=1';
+    let query = `
+      SELECT a.*, l.name AS location_name 
+      FROM attendance a
+      LEFT JOIN locations l ON a.location_id = l.id
+      WHERE 1=1
+    `;
     const params = [];
     
     if (user_id) {
-      query += ' AND user_id = ?';
+      query += ' AND a.user_id = ?';
       params.push(user_id);
     }
     
     if (date) {
-      query += ' AND DATE(timestamp) = ?';
+      query += ' AND DATE(a.timestamp) = ?';
       params.push(date);
     }
     
-    query += ' ORDER BY timestamp DESC';
+    query += ' ORDER BY a.timestamp DESC';
     
     const records = db.prepare(query).all(...params);
     res.json(records);
