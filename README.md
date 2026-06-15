@@ -31,6 +31,7 @@ Sistem Informasi Absensi, Penugasan Lapangan, dan Verifikasi Dokumentasi Checkli
   * Meninjau hasil foto/dokumen yang diupload teknisi.
   * Menolak/menyetujui dokumen dengan catatan perbaikan (*Review Note*).
   * Menolak (*Tolak*) atau menyetujui (*Setujui*) penugasan secara keseluruhan dari status **Menunggu Pemeriksaan** ke **Selesai** atau mengembalikannya ke **Dikerjakan**.
+  * **Dropdown Perubahan Status**: Mengubah status penugasan secara instan (*Menunggu*, *Dikerjakan*, *Menunggu Pemeriksaan*, *Selesai*, *Dibatalkan*) secara langsung dari tabel utama menggunakan dropdown interaktif berkode warna.
 * **Pemberitahuan Instan (Notifications)**: Lonceng notifikasi yang terupdate secara real-time. Mengklik notifikasi pemeriksaan akan langsung mengarahkan Admin ke tabel tinjauan dokumen bersangkutan serta menggulir halaman secara otomatis.
 
 ---
