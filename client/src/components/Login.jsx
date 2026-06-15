@@ -8,7 +8,6 @@ export default function Login() {
   const [error, setError] = useState('')
   const [isRegister, setIsRegister] = useState(false)
   const [name, setName] = useState('')
-  const [role, setRole] = useState('technician')
   
   const { login, register } = useAuth()
   const navigate = useNavigate()
@@ -19,7 +18,7 @@ export default function Login() {
     
     try {
       if (isRegister) {
-        await register(name, email, password, role)
+        await register(name, email, password, 'technician')
         const user = await login(email, password)
         navigate(user.role === 'admin' ? '/admin' : '/technician')
       } else {
@@ -79,20 +78,6 @@ export default function Login() {
               required
             />
           </div>
-          
-          {isRegister && (
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="technician">Technician</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-          )}
           
           <button
             type="submit"

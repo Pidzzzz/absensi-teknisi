@@ -8,13 +8,13 @@ const JWT_SECRET = 'absensi-secret-key-change-in-production';
 
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     
     const stmt = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(name, email, hashedPassword, role || 'technician');
+    const result = stmt.run(name, email, hashedPassword, 'technician');
     
-    res.json({ id: result.lastInsertRowid, name, email, role: role || 'technician' });
+    res.json({ id: result.lastInsertRowid, name, email, role: 'technician' });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
