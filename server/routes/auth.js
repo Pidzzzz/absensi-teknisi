@@ -46,6 +46,27 @@ router.get('/users', (req, res) => {
   res.json(users);
 });
 
+router.put('/users/:id/role', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    
+    if (!['admin', 'technician'].includes(role)) {
+      return res.status(400).json({ error: 'Role tidak valid' });
+    }
+    
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User tidak ditemukan' });
+    }
+    
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+    res.json({ id: user.id, name: user.name, email: user.email, role });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.put('/profile/:id', async (req, res) => {
   try {
     const { id } = req.params;

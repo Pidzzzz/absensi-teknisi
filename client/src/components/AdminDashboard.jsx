@@ -94,6 +94,15 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleRoleChange = async (userId, newRole) => {
+    try {
+      await api.put(`/auth/users/${userId}/role`, { role: newRole })
+      loadUsers()
+    } catch (error) {
+      console.error('Failed to change role:', error)
+    }
+  }
+
   const loadRecords = async () => {
     try {
       let url = `/attendance?date=${selectedDate}`
@@ -302,6 +311,7 @@ export default function AdminDashboard() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Daftar Pengguna</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Klik role untuk mengubah</p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -327,13 +337,18 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{u.email}</td>
                         <td className="py-4 px-6">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            u.role === 'admin'
-                              ? 'bg-secondary/10 text-secondary'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
-                          }`}>
-                            {u.role === 'admin' ? 'Admin' : 'Teknisi'}
-                          </span>
+                          <select
+                            value={u.role}
+                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary/50 ${
+                              u.role === 'admin'
+                                ? 'bg-secondary/10 text-secondary'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                            }`}
+                          >
+                            <option value="technician">Teknisi</option>
+                            <option value="admin">Admin</option>
+                          </select>
                         </td>
                       </tr>
                     ))}
