@@ -46,4 +46,31 @@ router.get('/users', (req, res) => {
   res.json(users);
 });
 
+router.put('/profile/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, currentPassword, newPassword } = req.body;
+    
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (currentPassword && newPassword) {
+      const validPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Password saat ini salah' });
+      }
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      db.prepare('UPDATE users SET name = ?, email = ?, password = ? WHERE id = ?').run(name, email, hashedPassword, id);
+    } else {
+      db.prepare('UPDATE users SET name = ?, email = ? WHERE id = ?').run(name, email, id);
+    }
+    
+    res.json({ id: user.id, name, email, role: user.role });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 module.exports = router;

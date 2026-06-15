@@ -7,3 +7,5 @@
   --color-secondary-light: #a78bfa;
   --color-secondary-dark: #5b21b6;
 }
+
+@variant dark (&:where(.dark, .dark *));
