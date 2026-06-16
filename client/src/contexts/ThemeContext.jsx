@@ -8,12 +8,24 @@ export function useTheme() {
 
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
-    const saved = localStorage.getItem('theme')
-    return saved ? saved === 'dark' : false
+    try {
+      const saved = localStorage.getItem('theme')
+      if (saved !== null) {
+        return saved === 'dark'
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+    } catch {
+      return false
+    }
   })
 
   useEffect(() => {
-    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    try {
+      localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    } catch {
+      // localStorage might be full
+    }
+    
     if (isDark) {
       document.documentElement.classList.add('dark')
     } else {
@@ -21,7 +33,24 @@ export function ThemeProvider({ children }) {
     }
   }, [isDark])
 
-  const toggleTheme = () => setIsDark(!isDark)
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e) => {
+      try {
+        const saved = localStorage.getItem('theme')
+        if (!saved) {
+          setIsDark(e.matches)
+        }
+      } catch {
+        setIsDark(e.matches)
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+
+  const toggleTheme = () => setIsDark(prev => !prev)
 
   return (
     <ThemeContext.Provider value={{ isDark, toggleTheme }}>

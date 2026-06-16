@@ -103,30 +103,42 @@ router.put('/:id', (req, res) => {
     if (status) {
       db.prepare('UPDATE assignments SET status = ? WHERE id = ?').run(status, req.params.id);
       
-      if (status === 'waiting_review') {
-        try {
-          const info = db.prepare(`
-            SELECT a.*, l.name as location_name, u.name as user_name
-            FROM assignments a
-            JOIN locations l ON a.location_id = l.id
-            JOIN users u ON a.user_id = u.id
-            WHERE a.id = ?
-          `).get(req.params.id);
+      try {
+        const info = db.prepare(`
+          SELECT a.*, l.name as location_name, u.name as user_name, u.id as tech_user_id
+          FROM assignments a
+          JOIN locations l ON a.location_id = l.id
+          JOIN users u ON a.user_id = u.id
+          WHERE a.id = ?
+        `).get(req.params.id);
+        
+        if (info) {
+          const locationName = info.location_name || 'Lokasi';
           
-          if (info) {
-            const technicianName = info.user_name || 'Teknisi';
-            const locationName = info.location_name || 'Lokasi';
+          if (status === 'waiting_review') {
             const admins = db.prepare("SELECT id FROM users WHERE role = 'admin'").all();
             const title = 'Request Pengecekan Penugasan';
-            const message = `Teknisi ${technicianName} menyelesaikan penugasan di ${locationName} dan meminta pengecekan segera.`;
+            const message = `Teknisi ${info.user_name} menyelesaikan penugasan di ${locationName} dan meminta pengecekan segera.`;
             
             for (const admin of admins) {
               db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(admin.id, title, message);
             }
+          } else if (status === 'completed') {
+            const title = 'Penugasan Disetujui';
+            const message = `Penugasan di ${locationName} telah disetujui dan ditandai selesai oleh admin.`;
+            db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(info.tech_user_id, title, message);
+          } else if (status === 'in_progress') {
+            const title = 'Penugasan Dikembalikan';
+            const message = `Penugasan di ${locationName} dikembalikan ke status "Dikerjakan" oleh admin. Silakan periksa catatan dan perbaiki.`;
+            db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(info.tech_user_id, title, message);
+          } else if (status === 'cancelled') {
+            const title = 'Penugasan Dibatalkan';
+            const message = `Penugasan di ${locationName} telah dibatalkan oleh admin.`;
+            db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(info.tech_user_id, title, message);
           }
-        } catch (notifErr) {
-          console.error('Failed to notify admins on status change:', notifErr);
         }
+      } catch (notifErr) {
+        console.error('Failed to send notification on status change:', notifErr);
       }
     }
     if (notes !== undefined) {

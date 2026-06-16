@@ -210,6 +210,100 @@ router.put('/notifications/read-all/:userId', (req, res) => {
   }
 });
 
+// Forgot Password / Change Password Request
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email, newPassword, confirmPassword } = req.body;
+    
+    if (!email || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'Semua field wajib diisi' });
+    }
+    
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Password baru dan konfirmasi tidak cocok' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password minimal 6 karakter' });
+    }
+    
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (!user) {
+      return res.status(404).json({ error: 'Email tidak ditemukan' });
+    }
+    
+    if (user.role === 'admin') {
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, user.id);
+      createNotification(user.id, 'Password Diubah', 'Password Anda telah berhasil diubah.');
+      return res.json({ message: 'Password berhasil diubah' });
+    }
+    
+    const existing = db.prepare('SELECT * FROM password_change_requests WHERE user_id = ? AND status = ?').get(user.id, 'pending');
+    if (existing) {
+      return res.status(400).json({ error: 'Anda sudah memiliki request yang pending. Menunggu persetujuan admin.' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    db.prepare('INSERT INTO password_change_requests (user_id, new_password) VALUES (?, ?)').run(user.id, hashedPassword);
+    
+    const admins = db.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+    for (const admin of admins) {
+      createNotification(admin.id, 'Request Ubah Password', `Teknisi ${user.name} meminta ubah password. Menunggu persetujuan Anda.`);
+    }
+    
+    res.json({ message: 'Request ubah password berhasil dikirim. Menunggu persetujuan admin.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get pending password change requests (Admin only)
+router.get('/password-requests', (req, res) => {
+  try {
+    const requests = db.prepare(`
+      SELECT pcr.*, u.name as user_name, u.email as user_email
+      FROM password_change_requests pcr
+      JOIN users u ON pcr.user_id = u.id
+      ORDER BY pcr.created_at DESC
+    `).all();
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve/Reject password change request (Admin only)
+router.put('/password-requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, reviewed_by } = req.body;
+    
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status tidak valid' });
+    }
+    
+    const request = db.prepare('SELECT * FROM password_change_requests WHERE id = ?').get(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Request tidak ditemukan' });
+    }
+    
+    db.prepare("UPDATE password_change_requests SET status = ?, reviewed_by = ?, reviewed_at = datetime('now') WHERE id = ?")
+      .run(status, reviewed_by, id);
+    
+    if (status === 'approved') {
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(request.new_password, request.user_id);
+      createNotification(request.user_id, 'Password Disetujui', 'Password Anda telah berhasil diubah oleh admin.');
+    } else {
+      createNotification(request.user_id, 'Password Ditolak', 'Request ubah password Anda ditolak oleh admin.');
+    }
+    
+    res.json({ message: `Request ${status === 'approved' ? 'disetujui' : 'ditolak'}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 function createNotification(userId, title, message) {
   db.prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)').run(userId, title, message);
 }

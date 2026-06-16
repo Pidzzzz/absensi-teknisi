@@ -322,14 +322,15 @@ router.get('/all-uploads', (req, res) => {
 router.put('/review/:id', (req, res) => {
   try {
     const { review_status, review_note } = req.body;
-    if (!['approved', 'rejected'].includes(review_status)) {
+    if (!['pending', 'approved', 'rejected'].includes(review_status)) {
       return res.status(400).json({ error: 'Status review tidak valid' });
     }
     const upload = db.prepare('SELECT * FROM documentation_uploads WHERE id = ?').get(req.params.id);
     if (!upload) return res.status(404).json({ error: 'Upload tidak ditemukan' });
 
-    db.prepare('UPDATE documentation_uploads SET review_status = ?, review_note = ?, reviewed_at = datetime("now") WHERE id = ?')
-      .run(review_status, review_note || '', req.params.id);
+    const reviewedAt = review_status === 'pending' ? null : new Date().toISOString();
+    db.prepare('UPDATE documentation_uploads SET review_status = ?, review_note = ?, reviewed_at = ? WHERE id = ?')
+      .run(review_status, review_note || '', reviewedAt, req.params.id);
 
     const updated = db.prepare(`
       SELECT du.*, di.name as item_name, u.name as user_name

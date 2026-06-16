@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { useToast } from '../contexts/ToastContext'
 import api from '../utils/api'
 import NotificationBell from './NotificationBell'
 
@@ -42,6 +43,7 @@ const menuItems = [
 export default function AdminDashboard() {
   const { user, logout, setUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
+  const toast = useToast()
   const [activeMenu, setActiveMenu] = useState('attendance')
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
@@ -79,6 +81,18 @@ export default function AdminDashboard() {
   const [docItemRequired, setDocItemRequired] = useState(true)
   const [docMessage, setDocMessage] = useState('')
   const [docError, setDocError] = useState('')
+  
+  // Password change requests state
+  const [passwordRequests, setPasswordRequests] = useState([])
+  
+  // Daily attendance summary state
+  const [dailySummary, setDailySummary] = useState([])
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [warningModalOpen, setWarningModalOpen] = useState(false)
+  const [warningTarget, setWarningTarget] = useState(null)
+  const [warningMessage, setWarningMessage] = useState('')
+  const [warningType, setWarningType] = useState('request_explanation')
+  const [excuses, setExcuses] = useState([])
 
   useEffect(() => {
     loadUsers()
@@ -87,10 +101,14 @@ export default function AdminDashboard() {
     loadAssignments()
     loadDocItems()
     loadDocUploads()
+    loadPasswordRequests()
+    loadDailySummary()
+    loadExcuses()
   }, [])
 
   useEffect(() => {
     loadRecords()
+    loadDailySummary()
   }, [selectedDate, selectedUser])
 
   useEffect(() => {
@@ -151,6 +169,93 @@ export default function AdminDashboard() {
       setDocUploads(response.data)
     } catch (error) {
       console.error('Failed to load doc uploads:', error)
+    }
+  }
+
+  const loadPasswordRequests = async () => {
+    try {
+      const response = await api.get('/auth/password-requests')
+      setPasswordRequests(response.data)
+    } catch (error) {
+      console.error('Failed to load password requests:', error)
+    }
+  }
+
+  const handlePasswordRequest = async (requestId, status) => {
+    try {
+      await api.put(`/auth/password-requests/${requestId}`, { status, reviewed_by: user.id })
+      loadPasswordRequests()
+    } catch (error) {
+      console.error('Failed to handle password request:', error)
+    }
+  }
+
+  const loadDailySummary = async () => {
+    setSummaryLoading(true)
+    try {
+      const response = await api.get(`/attendance/daily-summary?date=${selectedDate}`)
+      setDailySummary(response.data)
+    } catch (error) {
+      console.error('Failed to load daily summary:', error)
+    } finally {
+      setSummaryLoading(false)
+    }
+  }
+
+  const checkMissingCheckouts = async () => {
+    try {
+      const response = await api.post('/attendance/check-missing-checkout', { date: selectedDate })
+      loadDailySummary()
+      loadRecords()
+      toast.success(response.data.message)
+    } catch (error) {
+      console.error('Failed to check missing checkouts:', error)
+    }
+  }
+
+  const openWarningModal = (tech) => {
+    setWarningTarget(tech)
+    setWarningMessage('')
+    setWarningType('request_explanation')
+    setWarningModalOpen(true)
+  }
+
+  const sendWarning = async () => {
+    if (!warningMessage.trim()) {
+      toast.warning('Pesan wajib diisi')
+      return
+    }
+    try {
+      await api.post('/attendance/warnings', {
+        user_id: warningTarget.user_id,
+        attendance_date: selectedDate,
+        warning_type: warningType,
+        message: warningMessage,
+        admin_id: user.id
+      })
+      setWarningModalOpen(false)
+      toast.success('Teguran/permintaan keterangan berhasil dikirim')
+    } catch (error) {
+      console.error('Failed to send warning:', error)
+    }
+  }
+
+  const loadExcuses = async () => {
+    try {
+      const response = await api.get('/attendance/excuses?status=pending')
+      setExcuses(response.data)
+    } catch (error) {
+      console.error('Failed to load excuses:', error)
+    }
+  }
+
+  const handleExcuseReview = async (excuseId, status) => {
+    try {
+      await api.put(`/attendance/excuses/${excuseId}`, { status, reviewed_by: user.id })
+      loadExcuses()
+      loadDailySummary()
+    } catch (error) {
+      console.error('Failed to review excuse:', error)
     }
   }
 
@@ -311,6 +416,17 @@ export default function AdminDashboard() {
   const [docListExpanded, setDocListExpanded] = useState(true)
   const [draggedItem, setDraggedItem] = useState(null)
   const [dragOverItem, setDragOverItem] = useState(null)
+  
+  // Review modal state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [reviewAssignment, setReviewAssignment] = useState(null)
+  const [reviewAssignmentUploads, setReviewAssignmentUploads] = useState([])
+  const [reviewLoading, setReviewLoading] = useState(false)
+  
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxUpload, setLightboxUpload] = useState(null)
+  const [lightboxTempNote, setLightboxTempNote] = useState('')
 
   const handleDocFileUpload = async (file) => {
     if (!file) return
@@ -332,16 +448,56 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleReview = async (uploadId, status) => {
+  const handleReview = async (uploadId, status, note = '') => {
     try {
       await api.put(`/documentation/review/${uploadId}`, {
         review_status: status,
-        review_note: reviewNote
+        review_note: note || reviewNote
       })
       setReviewNote('')
       loadDocUploads()
+      if (reviewAssignment) {
+        loadReviewAssignmentUploads(reviewAssignment.id)
+      }
     } catch (error) {
       console.error('Failed to review upload:', error)
+    }
+  }
+
+  const openReviewModal = async (assignment) => {
+    setReviewAssignment(assignment)
+    setReviewModalOpen(true)
+    await loadReviewAssignmentUploads(assignment.id)
+  }
+
+  const loadReviewAssignmentUploads = async (assignmentId) => {
+    setReviewLoading(true)
+    try {
+      const response = await api.get(`/documentation/uploads/${assignmentId}`)
+      setReviewAssignmentUploads(response.data)
+    } catch (error) {
+      console.error('Failed to load assignment uploads:', error)
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const handleBulkReview = async (status) => {
+    const pendingUploads = reviewAssignmentUploads.filter(u => u.review_status === 'pending')
+    if (pendingUploads.length === 0) return
+
+    try {
+      for (const upload of pendingUploads) {
+        await api.put(`/documentation/review/${upload.id}`, {
+          review_status: status,
+          review_note: reviewNote
+        })
+      }
+      setReviewNote('')
+      loadReviewAssignmentUploads(reviewAssignment.id)
+      loadDocUploads()
+    } catch (error) {
+      console.error('Failed to bulk review:', error)
     }
   }
 
@@ -435,6 +591,138 @@ export default function AdminDashboard() {
       case 'attendance':
         return (
           <div className="space-y-6">
+            {/* Daily Summary Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Ringkasan Harian</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(selectedDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+                <button
+                  onClick={checkMissingCheckouts}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Cek Tidak Checkout
+                </button>
+              </div>
+              
+              {summaryLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="ml-2 text-gray-500">Memuat...</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-600 dark:text-green-400">Hadir</p>
+                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                          {dailySummary.filter(s => s.status === 'hadir').length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-amber-600 dark:text-amber-400">Belum Checkout</p>
+                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+                          {dailySummary.filter(s => s.status === 'belum checkout').length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
+                        <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l2-2m-2 2l-2-2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-red-600 dark:text-red-400">Tidak Masuk</p>
+                        <p className="text-2xl font-bold text-red-700 dark:text-red-300">
+                          {dailySummary.filter(s => s.status === 'tidak masuk').length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Detail List */}
+              {dailySummary.length > 0 && (
+                <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Detail Per Teknisi:</h3>
+                  <div className="space-y-2">
+                    {dailySummary.map(item => (
+                      <div key={item.user_id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            item.status === 'hadir' ? 'bg-green-500' :
+                            item.status === 'belum checkout' ? 'bg-amber-500' :
+                            item.status === 'tidak masuk' ? 'bg-red-500' :
+                            'bg-gray-400'
+                          }`}></div>
+                          <span className="font-medium text-gray-800 dark:text-white">{item.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          {item.check_in && (
+                            <span className="text-green-600 dark:text-green-400">
+                              In: {new Date(item.check_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                          {item.check_out ? (
+                            <span className="text-red-600 dark:text-red-400">
+                              Out: {new Date(item.check_out).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          ) : item.check_in ? (
+                            <span className="text-amber-600 dark:text-amber-400">Belum Out</span>
+                          ) : null}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            item.status === 'hadir' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            item.status === 'belum checkout' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+                            item.status === 'tidak masuk' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                            'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {item.status === 'hadir' ? 'Hadir' :
+                             item.status === 'belum checkout' ? 'Belum Checkout' :
+                             item.status === 'tidak masuk' ? 'Tidak Masuk' : 'Tidak Ada Data'}
+                          </span>
+                          {item.status === 'tidak masuk' && (
+                            <button
+                              onClick={() => openWarningModal(item)}
+                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
+                            >
+                              ⚠️ Tegur
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Filter</h2>
               <div className="flex flex-wrap gap-4">
@@ -590,6 +878,74 @@ export default function AdminDashboard() {
                                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
                               >
                                 Tolak
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Pending Password Change Requests */}
+            {passwordRequests.filter(r => r.status === 'pending').length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
+                  <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200">🔑 Request Ubah Password</h2>
+                  <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                    {passwordRequests.filter(r => r.status === 'pending').length} request menunggu persetujuan
+                  </p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-700">
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Nama</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Email</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Tanggal Request</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Status</th>
+                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {passwordRequests.filter(r => r.status === 'pending').map((request) => (
+                        <tr key={request.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+                                <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                  {request.user_name?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <span className="font-medium text-gray-800 dark:text-white">{request.user_name}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 text-gray-600 dark:text-gray-300">{request.user_email}</td>
+                          <td className="py-4 px-6 text-gray-500 dark:text-gray-400 text-sm">
+                            {new Date(request.created_at).toLocaleDateString('id-ID', { 
+                              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+                            })}
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                              ⏳ Menunggu
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handlePasswordRequest(request.id, 'approved')}
+                                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium transition-colors"
+                              >
+                                ✓ Setujui
+                              </button>
+                              <button
+                                onClick={() => handlePasswordRequest(request.id, 'rejected')}
+                                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
+                              >
+                                ✗ Tolak
                               </button>
                             </div>
                           </td>
@@ -1113,30 +1469,60 @@ export default function AdminDashboard() {
                               </td>
                               <td className="py-3 px-5 text-gray-500 dark:text-gray-400">{a.visit_date}</td>
                               <td className="py-3 px-5">
-                                <select
-                                  value={a.status}
-                                  onChange={async (e) => {
-                                    try {
-                                      await api.put(`/assignments/${a.id}`, { status: e.target.value })
-                                      loadAssignments()
-                                    } catch (err) {
-                                      console.error('Failed to change status:', err)
-                                    }
-                                  }}
-                                  className={`px-2 py-1.5 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary/55 bg-white dark:bg-gray-700 ${
-                                    a.status === 'completed' ? 'bg-green-50 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800' :
-                                    a.status === 'in_progress' ? 'bg-blue-50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800' :
-                                    a.status === 'waiting_review' ? 'bg-orange-50 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800' :
-                                    a.status === 'cancelled' ? 'bg-red-50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800' :
-                                    'bg-yellow-50 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
-                                  }`}
-                                >
-                                  <option value="pending">Menunggu</option>
-                                  <option value="in_progress">Dikerjakan</option>
-                                  <option value="waiting_review">Menunggu Pemeriksaan</option>
-                                  <option value="completed">Selesai</option>
-                                  <option value="cancelled">Dibatalkan</option>
-                                </select>
+                                <div className="relative">
+                                  <select
+                                    value={a.status}
+                                    onChange={async (e) => {
+                                      const newStatus = e.target.value
+                                      const statusLabels = {
+                                        pending: 'Menunggu',
+                                        in_progress: 'Dikerjakan',
+                                        waiting_review: 'Menunggu Pemeriksaan',
+                                        completed: 'Selesai',
+                                        cancelled: 'Dibatalkan'
+                                      }
+                                      const confirmMsg = `Ubah status dari "${statusLabels[a.status]}" ke "${statusLabels[newStatus]}"?`
+                                      
+                                      if (newStatus === 'completed' || newStatus === 'cancelled') {
+                                        if (!confirm(confirmMsg)) {
+                                          e.target.value = a.status
+                                          return
+                                        }
+                                      }
+                                      
+                                      try {
+                                        await api.put(`/assignments/${a.id}`, { status: newStatus })
+                                        loadAssignments()
+                                      } catch (err) {
+                                        console.error('Failed to change status:', err)
+                                      }
+                                    }}
+                                    className={`appearance-none w-full px-3 py-2 pr-8 rounded-lg text-xs font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary/50 border ${
+                                      a.status === 'completed' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800' :
+                                      a.status === 'in_progress' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800' :
+                                      a.status === 'waiting_review' ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800' :
+                                      a.status === 'cancelled' ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800' :
+                                      'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'
+                                    }`}
+                                  >
+                                    <option value="pending" className="bg-white dark:bg-gray-700 dark:text-gray-200">Menunggu</option>
+                                    <option value="in_progress" className="bg-white dark:bg-gray-700 dark:text-gray-200">Dikerjakan</option>
+                                    <option value="waiting_review" className="bg-white dark:bg-gray-700 dark:text-gray-200">Menunggu Pemeriksaan</option>
+                                    <option value="completed" className="bg-white dark:bg-gray-700 dark:text-gray-200">Selesai</option>
+                                    <option value="cancelled" className="bg-white dark:bg-gray-700 dark:text-gray-200">Dibatalkan</option>
+                                  </select>
+                                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                                    <svg className={`w-4 h-4 ${
+                                      a.status === 'completed' ? 'text-green-500' :
+                                      a.status === 'in_progress' ? 'text-blue-500' :
+                                      a.status === 'waiting_review' ? 'text-orange-500' :
+                                      a.status === 'cancelled' ? 'text-red-500' :
+                                      'text-yellow-500'
+                                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </div>
+                                </div>
                               </td>
                               <td className="py-3 px-5 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
@@ -1172,6 +1558,16 @@ export default function AdminDashboard() {
                                       </button>
                                     </>
                                   )}
+                                  <button
+                                    onClick={() => openReviewModal(a)}
+                                    className="p-1.5 text-gray-400 hover:text-secondary hover:bg-secondary/10 dark:hover:bg-secondary/20 rounded-lg transition-colors"
+                                    title="Review Dokumentasi"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                  </button>
                                   <button
                                     onClick={() => handleDeleteAssignment(a.id)}
                                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -1623,6 +2019,481 @@ export default function AdminDashboard() {
           {renderContent()}
         </div>
       </div>
+
+      {/* Review Modal */}
+      {reviewModalOpen && reviewAssignment && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">Review Dokumentasi</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {reviewAssignment.location_name} • {reviewAssignment.user_name} • {reviewAssignment.visit_date}
+                </p>
+              </div>
+              <button
+                onClick={() => setReviewModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Bulk Actions */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Aksi Massal:</span>
+              <button
+                onClick={() => handleBulkReview('approved')}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Setujui Semua
+              </button>
+              <button
+                onClick={() => handleBulkReview('rejected')}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Tolak Semua
+              </button>
+              <div className="flex-1"></div>
+              <input
+                type="text"
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder="Catatan review (opsional)"
+                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50 w-64"
+              />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {reviewLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="ml-3 text-gray-500">Memuat dokumentasi...</span>
+                </div>
+              ) : reviewAssignmentUploads.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500 dark:text-gray-400">Belum ada dokumentasi yang diupload</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reviewAssignmentUploads.map((upload) => (
+                    <div key={upload.id} className={`rounded-xl border overflow-hidden transition-all ${
+                      upload.review_status === 'approved' ? 'border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-900/10' :
+                      upload.review_status === 'rejected' ? 'border-red-300 dark:border-red-700 bg-red-50/50 dark:bg-red-900/10' :
+                      'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                    }`}>
+                      <div className="flex flex-col md:flex-row">
+                        {/* Image Preview */}
+                        <div className="md:w-1/2 bg-gray-100 dark:bg-gray-900 relative min-h-[200px]">
+                          {upload.file_type?.startsWith('image/') ? (
+                            <img
+                              src={`/api/documentation/download/${upload.file_name}`}
+                              alt={upload.item_name}
+                              className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => {
+                                setLightboxUpload(upload)
+                                setLightboxTempNote('')
+                                setLightboxOpen(true)
+                              }}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-full min-h-[200px]">
+                              <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <span className="text-sm text-gray-500 mt-2">{upload.file_name}</span>
+                            </div>
+                          )}
+                          <div className={`absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${
+                            upload.review_status === 'approved' ? 'bg-green-500 text-white' :
+                            upload.review_status === 'rejected' ? 'bg-red-500 text-white' :
+                            'bg-yellow-500 text-white'
+                          }`}>
+                            {upload.review_status === 'approved' ? '✓ Disetujui' :
+                             upload.review_status === 'rejected' ? '✗ Ditolak' : '⏳ Menunggu'}
+                          </div>
+                        </div>
+                        
+                        {/* Details & Actions */}
+                        <div className="md:w-1/2 p-5 flex flex-col">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-800 dark:text-white text-lg">{upload.item_name}</h4>
+                            {upload.item_description && (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{upload.item_description}</p>
+                            )}
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                              File: {upload.file_name}
+                            </p>
+                            
+                            {upload.review_status === 'rejected' && upload.review_note && (
+                              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                                <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">Catatan Penolakan:</p>
+                                <p className="text-sm text-red-700 dark:text-red-300 italic">"{upload.review_note}"</p>
+                              </div>
+                            )}
+                            
+                            {upload.review_status === 'approved' && upload.review_note && (
+                              <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Catatan Persetujuan:</p>
+                                <p className="text-sm text-green-700 dark:text-green-300 italic">"{upload.review_note}"</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Review Actions */}
+                          {upload.review_status === 'pending' && (
+                            <div className="mt-4 space-y-3">
+                              <input
+                                type="text"
+                                value={upload._reviewNote || ''}
+                                onChange={(e) => {
+                                  const updated = reviewAssignmentUploads.map(u => 
+                                    u.id === upload.id ? { ...u, _reviewNote: e.target.value } : u
+                                  )
+                                  setReviewAssignmentUploads(updated)
+                                }}
+                                placeholder="Catatan untuk foto ini (opsional)"
+                                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={async () => {
+                                    const note = upload._reviewNote || reviewNote
+                                    try {
+                                      await api.put(`/documentation/review/${upload.id}`, {
+                                        review_status: 'approved',
+                                        review_note: note
+                                      })
+                                    } catch (err) {
+                                      console.error(err)
+                                    }
+                                    loadReviewAssignmentUploads(reviewAssignment.id)
+                                    loadDocUploads()
+                                  }}
+                                  className="flex-1 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Setujui Foto
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    const note = upload._reviewNote || reviewNote
+                                    if (!note) {
+                                      toast.warning('Masukkan catatan penolakan')
+                                      return
+                                    }
+                                    try {
+                                      await api.put(`/documentation/review/${upload.id}`, {
+                                        review_status: 'rejected',
+                                        review_note: note
+                                      })
+                                    } catch (err) {
+                                      console.error(err)
+                                    }
+                                    loadReviewAssignmentUploads(reviewAssignment.id)
+                                    loadDocUploads()
+                                  }}
+                                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                  Tolak Foto
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {upload.review_status === 'approved' && (
+                            <div className="mt-4">
+                              <span className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Foto Disetujui
+                              </span>
+                            </div>
+                          )}
+                          
+                          {upload.review_status === 'rejected' && (
+                            <div className="mt-4">
+                              <span className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm font-medium">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Foto Ditolak
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900/50">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {reviewAssignmentUploads.filter(u => u.review_status === 'pending').length} menunggu review • 
+                {reviewAssignmentUploads.filter(u => u.review_status === 'approved').length} disetujui • 
+                {reviewAssignmentUploads.filter(u => u.review_status === 'rejected').length} ditolak
+              </div>
+              <button
+                onClick={() => setReviewModalOpen(false)}
+                className="px-6 py-2 bg-secondary hover:bg-secondary-dark text-white font-medium rounded-lg transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {lightboxOpen && lightboxUpload && (
+        <div 
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <div className="relative max-w-[95vw] max-h-[95vh] flex flex-col items-center">
+            {/* Close button */}
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors bg-white/10 rounded-full hover:bg-white/20"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Title & Status Dropdown */}
+            <div 
+              className="absolute -top-12 left-0 text-white font-medium flex items-center gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span>{lightboxUpload.item_name}</span>
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <select
+                  value={lightboxUpload.review_status}
+                  onChange={(e) => {
+                    const newStatus = e.target.value
+                    if (newStatus === lightboxUpload.review_status) return
+                    
+                    setLightboxUpload(prev => ({ ...prev, review_status: newStatus, _needsSave: true }))
+                    setLightboxTempNote('')
+                  }}
+                  className={`appearance-none px-3 py-1 pr-6 rounded-full text-xs font-bold cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/50 border-0 ${
+                    lightboxUpload.review_status === 'approved' ? 'bg-green-500 text-white' :
+                    lightboxUpload.review_status === 'rejected' ? 'bg-red-500 text-white' :
+                    'bg-yellow-500 text-white'
+                  }`}
+                >
+                  <option value="pending" className="bg-gray-800 text-white">Menunggu</option>
+                  <option value="approved" className="bg-gray-800 text-white">Disetujui</option>
+                  <option value="rejected" className="bg-gray-800 text-white">Ditolak</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-1">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            
+            {/* Image */}
+            <img
+              src={`/api/documentation/download/${lightboxUpload.file_name}`}
+              alt={lightboxUpload.item_name}
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            
+            {/* Actions */}
+            <div className="mt-4 flex items-center gap-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
+              {/* Download */}
+              <a
+                href={`/api/documentation/download/${lightboxUpload.file_name}`}
+                download
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download
+              </a>
+              
+              {/* Note input & Save button - show when status changed */}
+              {lightboxUpload._needsSave && (
+                <>
+                  <input
+                    type="text"
+                    value={lightboxTempNote}
+                    onChange={(e) => setLightboxTempNote(e.target.value)}
+                    placeholder={lightboxUpload.review_status === 'rejected' ? 'Alasan penolakan (wajib)...' : 'Catatan (opsional)'}
+                    className="px-3 py-2 bg-white/10 text-white placeholder-white/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-white/50 w-56"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (lightboxUpload.review_status === 'rejected' && !lightboxTempNote.trim()) {
+                        toast.warning('Alasan penolakan wajib diisi')
+                        return
+                      }
+                      try {
+                        await api.put(`/documentation/review/${lightboxUpload.id}`, {
+                          review_status: lightboxUpload.review_status,
+                          review_note: lightboxTempNote
+                        })
+                        setLightboxUpload(prev => ({ ...prev, review_note: lightboxTempNote, _needsSave: false }))
+                        setLightboxTempNote('')
+                        loadReviewAssignmentUploads(reviewAssignment.id)
+                        loadDocUploads()
+                      } catch (err) {
+                        console.error('Review error:', err)
+                        toast.error('Gagal menyimpan review')
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Simpan
+                  </button>
+                </>
+              )}
+              
+              {/* Already reviewed - show note */}
+              {lightboxUpload.review_note && !lightboxUpload._needsSave && (
+                <div className={`px-3 py-1.5 rounded-lg text-sm ${
+                  lightboxUpload.review_status === 'approved' 
+                    ? 'bg-green-500/20 text-green-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  <span className="opacity-70">Catatan:</span> "{lightboxUpload.review_note}"
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Modal */}
+      {warningModalOpen && warningTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">⚠️ Teguran / Permintaan Keterangan</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Untuk: {warningTarget.name} | Tanggal: {selectedDate}
+              </p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipe Pesan</label>
+                <select
+                  value={warningType}
+                  onChange={(e) => setWarningType(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                >
+                  <option value="request_explanation">📋 Minta Keterangan</option>
+                  <option value="reprimand">⚠️ Teguran</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pesan</label>
+                <textarea
+                  value={warningMessage}
+                  onChange={(e) => setWarningMessage(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                  placeholder={warningType === 'reprimand' 
+                    ? "Tuliskan pesan teguran..." 
+                    : "Tuliskan permintaan keterangan..."}
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => setWarningModalOpen(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={sendWarning}
+                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Kirim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excuses Review Modal */}
+      {excuses.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-80 max-h-96 overflow-hidden">
+            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-200">📝 Alasan Menunggu Review</h4>
+              <p className="text-xs text-amber-600 dark:text-amber-400">{excuses.length} pengajuan</p>
+            </div>
+            <div className="overflow-y-auto max-h-64 p-2">
+              {excuses.map(excuse => (
+                <div key={excuse.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-800 dark:text-white text-sm">{excuse.user_name}</span>
+                    <span className="text-xs text-gray-400">{excuse.attendance_date}</span>
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                    <span className="font-medium">Alasan:</span> {
+                      excuse.reason === 'sakit' ? '🤒 Sakit' :
+                      excuse.reason === 'acara_keluarga' ? '👨‍👩‍👧 Acara Keluarga' :
+                      excuse.reason === 'kendala_lapangan' ? '🚧 Kendala Lapangan' :
+                      '📝 Lainnya'
+                    }
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{excuse.description}</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExcuseReview(excuse.id, 'approved')}
+                      className="flex-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      ✓ Terima
+                    </button>
+                    <button
+                      onClick={() => handleExcuseReview(excuse.id, 'rejected')}
+                      className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      ✗ Tolak
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

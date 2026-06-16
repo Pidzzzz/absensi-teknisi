@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { useToast } from '../contexts/ToastContext'
 import { saveAttendanceRecord, getAttendanceRecords } from '../utils/storage'
 import api from '../utils/api'
 import SyncButton from './SyncButton'
 import NotificationBell from './NotificationBell'
+import { useOffline } from '../hooks/useOffline'
 
 export default function TechnicianDashboard() {
   const { user, logout, setUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
+  const { isOffline } = useOffline()
+  const toast = useToast()
   const [status, setStatus] = useState({ isCheckedIn: false })
   const [records, setRecords] = useState([])
   const [location, setLocation] = useState(null)
@@ -26,6 +30,13 @@ export default function TechnicianDashboard() {
   // Role request state
   const [roleRequest, setRoleRequest] = useState(null)
   const [roleRequestMessage, setRoleRequestMessage] = useState('')
+  
+  // Excuse state
+  const [excuseModalOpen, setExcuseModalOpen] = useState(false)
+  const [excuseReason, setExcuseReason] = useState('')
+  const [excuseDescription, setExcuseDescription] = useState('')
+  const [myExcuses, setMyExcuses] = useState([])
+  const [warnings, setWarnings] = useState([])
 
   // Assignment state
   const [assignments, setAssignments] = useState([])
@@ -64,7 +75,9 @@ export default function TechnicianDashboard() {
     getLocation()
     loadRoleRequest()
     loadAssignments()
-  }, [])
+    loadWarnings()
+    loadMyExcuses()
+  }, [isOffline])
 
   useEffect(() => {
     if (user) {
@@ -90,25 +103,51 @@ export default function TechnicianDashboard() {
   }
 
   const loadStatus = async () => {
-    try {
-      const response = await api.get(`/attendance/status?user_id=${user.id}`)
-      setStatus(response.data)
-    } catch (error) {
+    if (isOffline) {
       const records = getAttendanceRecords()
       const userRecords = records.filter(r => r.user_id === user.id)
       const lastCheckIn = userRecords.find(r => r.type === 'check-in')
       const lastCheckOut = userRecords.find(r => r.type === 'check-out')
+      setStatus({
+        isCheckedIn: lastCheckIn && (!lastCheckOut || lastCheckOut.timestamp < lastCheckIn.timestamp)
+      })
+      return
+    }
 
+    try {
+      const response = await api.get(`/attendance/status?user_id=${user.id}`)
+      setStatus(response.data)
+    } catch {
+      const records = getAttendanceRecords()
+      const userRecords = records.filter(r => r.user_id === user.id)
+      const lastCheckIn = userRecords.find(r => r.type === 'check-in')
+      const lastCheckOut = userRecords.find(r => r.type === 'check-out')
       setStatus({
         isCheckedIn: lastCheckIn && (!lastCheckOut || lastCheckOut.timestamp < lastCheckIn.timestamp)
       })
     }
   }
 
-  const loadRecords = () => {
-    const records = getAttendanceRecords()
-    const userRecords = records.filter(r => r.user_id === user.id)
-    setRecords(userRecords.slice(-10).reverse())
+  const loadRecords = async () => {
+    const localRecords = getAttendanceRecords()
+    const userLocalRecords = localRecords.filter(r => r.user_id === user.id)
+    
+    if (!isOffline) {
+      try {
+        const response = await api.get(`/attendance?user_id=${user.id}`)
+        const serverRecords = response.data.map(r => ({ ...r, synced: true, source: 'server' }))
+        const merged = [...userLocalRecords.filter(r => r.synced), ...serverRecords]
+        const unique = merged.filter((r, i, self) => 
+          self.findIndex(s => s.id === r.id) === i
+        )
+        setRecords(unique.slice(-10).reverse())
+        return
+      } catch {
+        // Fallback to local records
+      }
+    }
+    
+    setRecords(userLocalRecords.slice(-10).reverse())
   }
 
   const loadRoleRequest = async () => {
@@ -121,12 +160,60 @@ export default function TechnicianDashboard() {
   }
 
   const loadAssignments = async () => {
+    if (isOffline) {
+      setAssignmentMessage('Penugasan tidak tersedia saat offline')
+      return
+    }
+
     try {
       const today = new Date().toISOString().split('T')[0]
       const response = await api.get(`/assignments?user_id=${user.id}&date=${today}`)
       setAssignments(response.data)
+      setAssignmentMessage('')
+    } catch {
+      setAssignmentMessage('Gagal memuat penugasan dari server')
+    }
+  }
+
+  const loadWarnings = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const response = await api.get(`/attendance/warnings/${user.id}/${today}`)
+      setWarnings(response.data)
     } catch (error) {
-      console.error('Failed to load assignments:', error)
+      console.error('Failed to load warnings:', error)
+    }
+  }
+
+  const loadMyExcuses = async () => {
+    try {
+      const response = await api.get(`/attendance/excuses/user/${user.id}`)
+      setMyExcuses(response.data)
+    } catch (error) {
+      console.error('Failed to load excuses:', error)
+    }
+  }
+
+  const submitExcuse = async () => {
+    if (!excuseReason || !excuseDescription.trim()) {
+      toast.warning('Alasan dan keterangan wajib diisi')
+      return
+    }
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      await api.post('/attendance/excuses', {
+        user_id: user.id,
+        attendance_date: today,
+        reason: excuseReason,
+        description: excuseDescription
+      })
+      setExcuseModalOpen(false)
+      setExcuseReason('')
+      setExcuseDescription('')
+      loadMyExcuses()
+      toast.success('Alasan berhasil diajukan')
+    } catch (error) {
+      console.error('Failed to submit excuse:', error)
     }
   }
 
@@ -300,6 +387,14 @@ export default function TechnicianDashboard() {
       }
 
       saveAttendanceRecord(record)
+      
+      // Auto sync to server
+      try {
+        await api.post('/attendance/sync', { records: [{ ...record, synced: 1 }] })
+      } catch (syncErr) {
+        console.log('Sync failed, will sync later:', syncErr)
+      }
+      
       setStatus({ isCheckedIn: true })
       loadRecords()
     } finally {
@@ -319,6 +414,14 @@ export default function TechnicianDashboard() {
       }
 
       saveAttendanceRecord(record)
+      
+      // Auto sync to server
+      try {
+        await api.post('/attendance/sync', { records: [{ ...record, synced: 1 }] })
+      } catch (syncErr) {
+        console.log('Sync failed, will sync later:', syncErr)
+      }
+      
       setStatus({ isCheckedIn: false })
       loadRecords()
     } finally {
@@ -352,10 +455,122 @@ export default function TechnicianDashboard() {
   }
 
   const renderContent = () => {
+    const today = new Date().toISOString().split('T')[0]
+    const todayExcuse = myExcuses.find(e => e.attendance_date === today)
+    const hasSubmittedExcuse = todayExcuse && todayExcuse.status !== 'rejected'
+
     switch (activeTab) {
       case 'home':
         return (
           <div className="space-y-6">
+            {/* Warning/Reprimand Section - Hide if already submitted excuse */}
+            {warnings.length > 0 && !hasSubmittedExcuse && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+                <h3 className="font-semibold text-red-800 dark:text-red-200 mb-3 flex items-center gap-2">
+                  ⚠️ Pesan dari Admin
+                </h3>
+                {warnings.map(w => (
+                  <div key={w.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 last:mb-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        w.warning_type === 'reprimand' 
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      }`}>
+                        {w.warning_type === 'reprimand' ? '⚠️ Teguran' : '📋 Minta Keterangan'}
+                      </span>
+                      <span className="text-xs text-gray-400">{w.admin_name}</span>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{w.message}</p>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setExcuseModalOpen(true)}
+                  className="mt-3 w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  📝 Ajukan Alasan
+                </button>
+              </div>
+            )}
+
+            {/* Show confirmation if excuse submitted */}
+            {hasSubmittedExcuse && (
+              <div className={`rounded-xl p-4 ${
+                todayExcuse.status === 'approved' 
+                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                  : todayExcuse.status === 'rejected'
+                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                  : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    todayExcuse.status === 'approved' ? 'bg-green-100 dark:bg-green-900/40' :
+                    todayExcuse.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/40' :
+                    'bg-blue-100 dark:bg-blue-900/40'
+                  }`}>
+                    {todayExcuse.status === 'approved' ? (
+                      <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : todayExcuse.status === 'rejected' ? (
+                      <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`font-medium ${
+                      todayExcuse.status === 'approved' ? 'text-green-800 dark:text-green-200' :
+                      todayExcuse.status === 'rejected' ? 'text-red-800 dark:text-red-200' :
+                      'text-blue-800 dark:text-blue-200'
+                    }`}>
+                      {todayExcuse.status === 'approved' ? '✅ Alasan Diterima' :
+                       todayExcuse.status === 'rejected' ? '❌ Alasan Ditolak' :
+                       '⏳ Alasan Sedang Diverifikasi'}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {todayExcuse.status === 'approved' ? 'Ketidakhadiran Anda telah disetujui' :
+                       todayExcuse.status === 'rejected' ? 'Alasan Anda ditolak. Silakan hubungi admin.' :
+                       'Menunggu persetujuan admin'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* My Excuses History */}
+            {myExcuses.filter(e => e.attendance_date !== today).length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+                <h3 className="font-semibold text-gray-800 dark:text-white mb-3">📝 Riwayat Alasan Sebelumnya</h3>
+                <div className="space-y-2">
+                  {myExcuses.filter(e => e.attendance_date !== today).slice(0, 3).map(excuse => (
+                    <div key={excuse.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
+                      <div>
+                        <span className="font-medium text-gray-800 dark:text-white">{excuse.attendance_date}</span>
+                        <span className="text-gray-500 dark:text-gray-400 ml-2">
+                          {excuse.reason === 'sakit' ? '🤒 Sakit' :
+                           excuse.reason === 'acara_keluarga' ? '👨‍👩‍👧 Keluarga' :
+                           excuse.reason === 'kendala_lapangan' ? '🚧 Lapangan' : '📝 Lainnya'}
+                        </span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        excuse.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                        excuse.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                      }`}>
+                        {excuse.status === 'approved' ? 'Diterima' :
+                         excuse.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Status Absensi</h2>
               <div className="flex items-center gap-4 mb-6">
@@ -433,6 +648,14 @@ export default function TechnicianDashboard() {
                         <p className="text-xs text-gray-400">
                           {new Date(record.timestamp).toLocaleDateString('id-ID')}
                         </p>
+                        {record.synced === false && (
+                          <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Belum sync
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))
@@ -1155,6 +1378,110 @@ export default function TechnicianDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 {loading ? 'Memproses...' : 'Check Out & Selesai'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Excuse Modal */}
+      {excuseModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">📝 Ajukan Alasan</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alasan</label>
+                <select
+                  value={excuseReason}
+                  onChange={(e) => {
+                    setExcuseReason(e.target.value)
+                    setExcuseDescription('')
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                >
+                  <option value="">Pilih alasan...</option>
+                  <option value="sakit">🤒 Sakit</option>
+                  <option value="acara_keluarga">👨‍👩‍👧 Acara Keluarga</option>
+                  <option value="kendala_lapangan">🚧 Kendala Lapangan</option>
+                  <option value="lainnya">📝 Lainnya</option>
+                </select>
+              </div>
+              
+              {excuseReason && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {excuseReason === 'kendala_lapangan' ? 'Detail Kendala *' : 'Keterangan *'}
+                  </label>
+                  {excuseReason === 'kendala_lapangan' ? (
+                    <textarea
+                      value={excuseDescription}
+                      onChange={(e) => setExcuseDescription(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                      placeholder="Jelaskan kendala lapangan yang dihadapi...&#10;Contoh:&#10;- Jalan rusak/tidak bisa dilalui kendaraan&#10;- Cuaca ekstrem&#10;- Peralatan rusak&#10;- dll"
+                      required
+                    />
+                  ) : excuseReason === 'sakit' ? (
+                    <input
+                      type="text"
+                      value={excuseDescription}
+                      onChange={(e) => setExcuseDescription(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                      placeholder="Contoh: Demam, flu, sakit perut..."
+                      required
+                    />
+                  ) : excuseReason === 'acara_keluarga' ? (
+                    <input
+                      type="text"
+                      value={excuseDescription}
+                      onChange={(e) => setExcuseDescription(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                      placeholder="Contoh: Pernikahan, pemakaman, syukuran..."
+                      required
+                    />
+                  ) : (
+                    <textarea
+                      value={excuseDescription}
+                      onChange={(e) => setExcuseDescription(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                      placeholder="Jelaskan alasan Anda..."
+                      required
+                    />
+                  )}
+                  {excuseReason === 'kendala_lapangan' && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      ⚠️ Wajib menjelaskan kendala dengan detail untuk verifikasi admin
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setExcuseModalOpen(false)
+                  setExcuseReason('')
+                  setExcuseDescription('')
+                }}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={submitExcuse}
+                disabled={!excuseReason || !excuseDescription.trim()}
+                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              >
+                Kirim
               </button>
             </div>
           </div>
