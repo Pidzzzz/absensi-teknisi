@@ -231,4 +231,70 @@ router.post('/:id/request-check', (req, res) => {
   }
 });
 
+router.post('/request-daily', (req, res) => {
+  try {
+    const { user_id, date } = req.body;
+    
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id harus diisi' });
+    }
+    
+    const visitDate = date || new Date().toISOString().split('T')[0];
+    
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(user_id);
+    if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
+    
+    const existingAssignments = db.prepare(
+      'SELECT * FROM assignments WHERE user_id = ? AND visit_date = ?'
+    ).all(user_id, visitDate);
+    
+    const existingLocationIds = existingAssignments.map(a => a.location_id);
+    
+    let availableLocations;
+    if (existingLocationIds.length > 0) {
+      const placeholders = existingLocationIds.map(() => '?').join(',');
+      availableLocations = db.prepare(
+        `SELECT * FROM locations WHERE id NOT IN (${placeholders}) ORDER BY RANDOM()`
+      ).all(...existingLocationIds);
+    } else {
+      availableLocations = db.prepare('SELECT * FROM locations ORDER BY RANDOM()').all();
+    }
+    
+    if (availableLocations.length === 0) {
+      return res.status(400).json({ error: 'Tidak ada lokasi tersedia untuk ditugaskan' });
+    }
+    
+    const locationsToAssign = availableLocations.slice(0, 2);
+    
+    const insert = db.prepare(
+      'INSERT INTO assignments (user_id, location_id, visit_date, notes, type) VALUES (?, ?, ?, ?, ?)'
+    );
+    
+    const createdAssignments = [];
+    const insertMany = db.transaction((locations) => {
+      for (const location of locations) {
+        const result = insert.run(user_id, location.id, visitDate, '', 'CORRECTIVE');
+        createdAssignments.push(result.lastInsertRowid);
+      }
+    });
+    
+    insertMany(locationsToAssign);
+    
+    const assignments = db.prepare(`
+      SELECT a.*, l.name as location_name, l.province, l.site_id, l.address, u.name as user_name
+      FROM assignments a
+      JOIN locations l ON a.location_id = l.id
+      JOIN users u ON a.user_id = u.id
+      WHERE a.id IN (${createdAssignments.map(() => '?').join(',')})
+    `).all(...createdAssignments);
+    
+    res.json({
+      message: `${assignments.length} penugasan berhasil dibuat untuk tanggal ${visitDate}`,
+      assignments
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

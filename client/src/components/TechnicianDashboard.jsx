@@ -175,6 +175,26 @@ export default function TechnicianDashboard() {
     }
   }
 
+  const handleRequestDaily = async () => {
+    setLoading(true)
+    setAssignmentMessage('')
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const response = await api.post('/assignments/request-daily', {
+        user_id: user.id,
+        date: today
+      })
+      setAssignmentMessage(response.data.message)
+      loadAssignments()
+      setTimeout(() => setAssignmentMessage(''), 4000)
+    } catch (error) {
+      setAssignmentMessage(error.response?.data?.error || 'Gagal request tugas harian')
+      setTimeout(() => setAssignmentMessage(''), 4000)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const loadWarnings = async () => {
     try {
       const today = new Date().toISOString().split('T')[0]
@@ -669,10 +689,26 @@ export default function TechnicianDashboard() {
         return (
           <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Penugasan Hari Ini</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Lokasi yang harus Anda kunjungi hari ini
-              </p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Penugasan Hari Ini</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Lokasi yang harus Anda kunjungi hari ini
+                  </p>
+                </div>
+                {assignments.length < 2 && (
+                  <button
+                    onClick={handleRequestDaily}
+                    disabled={loading}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Request Tugas
+                  </button>
+                )}
+              </div>
 
               {assignmentMessage && (
                 <div className={`p-3 rounded-lg mb-4 text-sm font-medium ${
@@ -690,7 +726,14 @@ export default function TechnicianDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <p className="text-gray-400">Tidak ada penugasan hari ini</p>
+                  <p className="text-gray-400 mb-4">Tidak ada penugasan hari ini</p>
+                  <button
+                    onClick={handleRequestDaily}
+                    disabled={loading}
+                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
+                  >
+                    {loading ? 'Memproses...' : 'Request Tugas Sekarang'}
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4">
