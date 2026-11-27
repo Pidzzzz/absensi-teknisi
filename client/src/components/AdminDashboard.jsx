@@ -1967,25 +1967,35 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tipe Penugasan</label>
-                      <select
+                      <Pilih
                         value={assignType}
-                        onChange={(e) => setAssignType(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-                        required
-                      >
-                        <option value="CORRECTIVE">CORRECTIVE (5 Foto)</option>
-                        <option value="PREVENTIVE MAINTENANCE">PREVENTIVE MAINTENANCE (51 Foto)</option>
-                      </select>
+                        onChange={setAssignType}
+                        placeholder="Pilih tipe"
+                        options={[
+                          { value: 'CORRECTIVE', label: 'Corrective', hint: '5 foto wajib' },
+                          { value: 'PREVENTIVE MAINTENANCE', label: 'Preventive maintenance', hint: '51 foto wajib' },
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tanggal</label>
-                      <input
-                        type="date"
-                        value={assignDate}
-                        onChange={(e) => setAssignDate(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={assignDate}
+                          onChange={(e) => setAssignDate(e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 pr-9 text-sm text-gray-800 transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#14532D]/25 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-y-0 [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+                          required
+                        />
+                        <svg
+                          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Catatan</label>
