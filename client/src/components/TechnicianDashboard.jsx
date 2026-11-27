@@ -511,208 +511,224 @@ export default function TechnicianDashboard() {
     switch (activeTab) {
       case 'home':
         return (
-          <div className="space-y-6">
-            {/* Warning/Reprimand Section - Hide if already submitted excuse */}
+          <div className="space-y-4">
+            {/* Pesan dari admin */}
             {warnings.length > 0 && !hasSubmittedExcuse && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                <h3 className="font-semibold text-red-800 dark:text-red-200 mb-3 flex items-center gap-2">
-                  <Ikon name="peringatan" className="w-5 h-5" />Pesan dari Admin
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  <Ikon name="peringatan" className="h-5 w-5" />Pesan dari Admin
                 </h3>
-                {warnings.map(w => (
-                  <div key={w.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 last:mb-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        w.warning_type === 'reprimand' 
-                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      }`}>
+                {warnings.map((w) => (
+                  <div key={w.id} className="mb-2 rounded-lg bg-white p-3 last:mb-0 dark:bg-gray-800">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          w.warning_type === 'reprimand'
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                        }`}
+                      >
                         {w.warning_type === 'reprimand' ? 'Teguran' : 'Minta Keterangan'}
                       </span>
-                      <span className="text-xs text-gray-400">{w.admin_name}</span>
+                      <span className="text-[11px] text-gray-400">{w.admin_name}</span>
                     </div>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{w.message}</p>
                   </div>
                 ))}
                 <button
                   onClick={() => setExcuseModalOpen(true)}
-                  className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#14532D] px-4 py-2.5 text-sm font-medium text-[#FAF6EC] transition-colors hover:bg-[#0F3D22]"
                 >
-                  <Ikon name="catatan" className="w-4 h-4" />Ajukan Alasan
+                  <Ikon name="catatan" className="h-4 w-4" />Ajukan Alasan
                 </button>
               </div>
             )}
 
-            {/* Show confirmation if excuse submitted */}
+            {/* Status pengajuan alasan */}
             {hasSubmittedExcuse && (
-              <div className={`rounded-xl p-4 ${
-                todayExcuse.status === 'approved' 
-                  ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
-                  : todayExcuse.status === 'rejected'
-                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
-                  : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    todayExcuse.status === 'approved' ? 'bg-green-100 dark:bg-green-900/40' :
-                    todayExcuse.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/40' :
-                    'bg-blue-100 dark:bg-blue-900/40'
-                  }`}>
-                    {todayExcuse.status === 'approved' ? (
-                      <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : todayExcuse.status === 'rejected' ? (
-                      <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    )}
-                  </div>
+              <div
+                className={`rounded-xl border p-4 ${
+                  todayExcuse.status === 'approved'
+                    ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+                    : todayExcuse.status === 'rejected'
+                      ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                      : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${
+                      todayExcuse.status === 'approved'
+                        ? 'bg-[#15803D]'
+                        : todayExcuse.status === 'rejected'
+                          ? 'bg-[#B91C1C]'
+                          : 'bg-[#B45309]'
+                    }`}
+                  />
                   <div>
-                    <p className={`font-medium ${
-                      todayExcuse.status === 'approved' ? 'text-green-800 dark:text-green-200' :
-                      todayExcuse.status === 'rejected' ? 'text-red-800 dark:text-red-200' :
-                      'text-blue-800 dark:text-blue-200'
-                    }`}>
-                      {todayExcuse.status === 'approved' ? 'Alasan Diterima' :
-                       todayExcuse.status === 'rejected' ? 'Alasan Ditolak' :
-                       'Alasan Sedang Diverifikasi'}
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {todayExcuse.status === 'approved'
+                        ? 'Alasan Diterima'
+                        : todayExcuse.status === 'rejected'
+                          ? 'Alasan Ditolak'
+                          : 'Alasan Sedang Diverifikasi'}
                     </p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {todayExcuse.status === 'approved' ? 'Ketidakhadiran Anda telah disetujui' :
-                       todayExcuse.status === 'rejected' ? 'Alasan Anda ditolak. Silakan hubungi admin.' :
-                       'Menunggu persetujuan admin'}
+                    <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                      {todayExcuse.status === 'approved'
+                        ? 'Ketidakhadiran Anda telah disetujui'
+                        : todayExcuse.status === 'rejected'
+                          ? 'Alasan Anda ditolak. Silakan hubungi admin.'
+                          : 'Menunggu persetujuan admin'}
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* My Excuses History */}
-            {myExcuses.filter(e => e.attendance_date !== today).length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
-                <h3 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><Ikon name="catatan" className="w-4 h-4" />Riwayat Alasan Sebelumnya</h3>
-                <div className="space-y-2">
-                  {myExcuses.filter(e => e.attendance_date !== today).slice(0, 3).map(excuse => (
-                    <div key={excuse.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
-                      <div>
-                        <span className="font-medium text-gray-800 dark:text-white">{excuse.attendance_date}</span>
-                        <span className="text-gray-500 dark:text-gray-400 ml-2">
-                          {excuse.reason === 'sakit' ? 'Sakit' :
-                           excuse.reason === 'acara_keluarga' ? 'Keluarga' :
-                           excuse.reason === 'kendala_lapangan' ? 'Lapangan' : 'Lainnya'}
-                        </span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        excuse.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                        excuse.status === 'rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                      }`}>
-                        {excuse.status === 'approved' ? 'Diterima' :
-                         excuse.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
-                      </span>
-                    </div>
-                  ))}
+            {/* Absensi hari ini */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-gray-400">Absensi hari ini</p>
+                  <p className="mt-1 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+                    <span className={`h-2 w-2 rounded-full ${status.isCheckedIn ? 'bg-[#15803D]' : 'bg-[#B45309]'}`} />
+                    {status.isCheckedIn ? 'Sudah check in' : 'Belum check in'}
+                  </p>
                 </div>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Status Absensi</h2>
-              <div className="flex items-center gap-4 mb-6">
-                <div className={`w-4 h-4 rounded-full ${status.isCheckedIn ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-lg text-gray-800 dark:text-white">
-                  {status.isCheckedIn ? 'Sudah Check In' : 'Belum Check In'}
+                <span className="rounded-full bg-[#FAF6EC] px-2.5 py-1 text-[11px] font-medium text-[#14532D] dark:bg-gray-700 dark:text-gray-200">
+                  {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                 </span>
               </div>
 
-              {location && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  Lokasi: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+              {location ? (
+                <p className="mt-2 font-mono text-[11px] tabular-nums text-gray-400">
+                  {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
                 </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-gray-400">Menunggu lokasi GPS...</p>
               )}
 
-              <div className="flex gap-4">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
                   onClick={handleCheckIn}
                   disabled={status.isCheckedIn || loading}
-                  className="bg-secondary text-white px-6 py-3 rounded-lg hover:bg-secondary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-lg bg-[#14532D] px-4 py-3 text-sm font-medium text-[#FAF6EC] transition-colors hover:bg-[#0F3D22] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Check In
                 </button>
                 <button
                   onClick={handleCheckOut}
                   disabled={!status.isCheckedIn || loading}
-                  className="bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
                   Check Out
                 </button>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Aktivitas Terakhir</h2>
+            {/* Aktivitas terakhir */}
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-center justify-between border-b border-gray-100 p-4 dark:border-gray-700">
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Aktivitas terakhir</h2>
                 <SyncButton onSyncComplete={loadRecords} />
               </div>
-              <div className="space-y-3">
-                {records.length === 0 ? (
-                  <p className="text-gray-400 text-center py-4">Belum ada riwayat</p>
-                ) : (
-                  records.map((record, index) => (
-                    <div key={index} className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          record.type === 'check-in' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
-                        }`}>
-                          <span className={`text-lg ${record.type === 'check-in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {record.type === 'check-in' ? '↓' : '↑'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className={`font-medium block ${record.type === 'check-in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            {record.type === 'check-in' 
-                              ? (record.assignment_id ? 'Check In Visit' : 'Check In Masuk') 
-                              : (record.assignment_id ? 'Check Out Visit' : 'Check Out Pulang')}
-                          </span>
+              {records.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-400">Belum ada riwayat</p>
+              ) : (
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {records.map((record, index) => (
+                    <div key={index} className="flex items-start justify-between gap-3 p-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span
+                          className={`mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+                            record.type === 'check-in' ? 'bg-[#15803D]' : 'bg-[#B45309]'
+                          }`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {record.type === 'check-in'
+                              ? record.assignment_id
+                                ? 'Check In Visit'
+                                : 'Check In Masuk'
+                              : record.assignment_id
+                                ? 'Check Out Visit'
+                                : 'Check Out Pulang'}
+                          </p>
                           {record.location_name && (
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                              Lokasi: {record.location_name}
-                            </p>
+                            <p className="truncate text-xs text-gray-500 dark:text-gray-400">{record.location_name}</p>
                           )}
                           {record.lat && record.lng && (
-                            <p className="text-xs text-gray-400">
-                              GPS: {record.lat.toFixed(4)}, {record.lng.toFixed(4)}
+                            <p className="font-mono text-[11px] tabular-nums text-gray-400">
+                              {record.lat.toFixed(4)}, {record.lng.toFixed(4)}
                             </p>
                           )}
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          {new Date(record.timestamp).toLocaleTimeString('id-ID')}
+                        <p className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
+                          {new Date(record.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                        <p className="text-xs text-gray-400">
-                          {new Date(record.timestamp).toLocaleDateString('id-ID')}
+                        <p className="text-[11px] text-gray-400">
+                          {new Date(record.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                         </p>
                         {record.synced === false && (
-                          <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                          <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
                             Belum sync
                           </span>
                         )}
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Riwayat alasan */}
+            {myExcuses.filter((e) => e.attendance_date !== today).length > 0 && (
+              <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="flex items-center gap-2 border-b border-gray-100 p-4 text-sm font-semibold text-gray-900 dark:border-gray-700 dark:text-white">
+                  <Ikon name="catatan" className="h-4 w-4" />Riwayat alasan sebelumnya
+                </h3>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {myExcuses
+                    .filter((e) => e.attendance_date !== today)
+                    .slice(0, 3)
+                    .map((excuse) => (
+                      <div key={excuse.id} className="flex items-center justify-between p-4 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-900 dark:text-white">{excuse.attendance_date}</span>
+                          <span className="ml-2 text-gray-500 dark:text-gray-400">
+                            {excuse.reason === 'sakit'
+                              ? 'Sakit'
+                              : excuse.reason === 'acara_keluarga'
+                                ? 'Keluarga'
+                                : excuse.reason === 'kendala_lapangan'
+                                  ? 'Lapangan'
+                                  : 'Lainnya'}
+                          </span>
+                        </div>
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              excuse.status === 'approved'
+                                ? 'bg-[#15803D]'
+                                : excuse.status === 'rejected'
+                                  ? 'bg-[#B91C1C]'
+                                  : 'bg-[#B45309]'
+                            }`}
+                          />
+                          {excuse.status === 'approved' ? 'Diterima' : excuse.status === 'rejected' ? 'Ditolak' : 'Menunggu'}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )
+
 
       case 'assignments':
         return (
@@ -769,12 +785,12 @@ export default function TechnicianDashboard() {
                   {assignments.map((a) => (
                     <div key={a.id} className={`rounded-xl p-5 transition-colors ${
                       selectedAssignment?.id === a.id
-                        ? 'bg-secondary/5 ring-2 ring-secondary'
+                        ? 'bg-[#E8EFE8] ring-2 ring-[#14532D] dark:bg-[#1F3A2A]'
                         : 'bg-gray-50 dark:bg-gray-700'
                     }`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                          <div className="w-12 h-12 bg-[#E8EFE8] dark:bg-[#1F3A2A] rounded-full flex items-center justify-center flex-shrink-0">
                             <svg className="w-6 h-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             </svg>
@@ -783,7 +799,7 @@ export default function TechnicianDashboard() {
                             <h3 className="font-semibold text-gray-800 dark:text-white">{a.location_name}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">{a.address || '-'}</p>
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#E8EFE8] dark:bg-[#1F3A2A] text-secondary">
                                 {a.site_id || '-'}
                               </span>
                               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
@@ -815,7 +831,7 @@ export default function TechnicianDashboard() {
                             <button
                               onClick={() => handleCheckInAtLocation(a.id, a.location_id)}
                               disabled={loading}
-                              className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary-dark disabled:opacity-50 text-sm font-medium transition-colors"
+                              className="px-4 py-2 bg-[#14532D] text-white rounded-lg hover:bg-[#0F3D22] disabled:opacity-50 text-sm font-medium transition-colors"
                             >
                               Check In di Sini
                             </button>
@@ -844,7 +860,7 @@ export default function TechnicianDashboard() {
                           )}
                           <button
                             onClick={() => handleSelectAssignment(a)}
-                            className="px-3 py-1.5 text-secondary hover:bg-secondary/10 rounded-lg text-sm font-medium transition-colors"
+                            className="px-3 py-1.5 text-secondary hover:bg-[#E8EFE8] dark:bg-[#1F3A2A] rounded-lg text-sm font-medium transition-colors"
                           >
                             {selectedAssignment?.id === a.id ? 'Terpilih' : 'Lihat Dokumentasi'}
                           </button>
@@ -870,7 +886,7 @@ export default function TechnicianDashboard() {
                     </span>
                     <div className="w-24 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-secondary transition-all"
+                        className="h-full bg-[#14532D] transition-all"
                         style={{ width: `${docChecklist.length > 0 ? (docChecklist.filter(d => d.uploaded).length / docChecklist.length * 100) : 0}%` }}
                       />
                     </div>
@@ -942,7 +958,7 @@ export default function TechnicianDashboard() {
                             <label className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
                               uploadingDoc
                                 ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                                : 'bg-secondary text-white hover:bg-secondary-dark'
+                                : 'bg-[#14532D] text-white hover:bg-[#0F3D22]'
                             }`}>
                               {uploadingDoc ? 'Mengupload...' : 'Upload'}
                               <input
@@ -985,7 +1001,7 @@ export default function TechnicianDashboard() {
                                 (selectedAssignment?.type === 'PREVENTIVE MAINTENANCE' &&
                                   docChecklist.filter(d => d.is_required === 1).length !== docChecklist.filter(d => d.is_required === 1 && d.uploaded).length)
                               }
-                              className="px-5 py-2.5 bg-secondary text-white rounded-lg hover:bg-secondary-dark disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
+                              className="px-5 py-2.5 bg-[#14532D] text-white rounded-lg hover:bg-[#0F3D22] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1022,7 +1038,7 @@ export default function TechnicianDashboard() {
 
               <form onSubmit={handleProfileUpdate} className="space-y-6">
                 <div className="flex items-center gap-6 mb-6">
-                  <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center">
+                  <div className="w-20 h-20 bg-[#14532D] rounded-full flex items-center justify-center">
                     <span className="text-white text-2xl font-bold">{profileName.charAt(0).toUpperCase()}</span>
                   </div>
                   <div>
@@ -1082,7 +1098,7 @@ export default function TechnicianDashboard() {
 
                 <button
                   type="submit"
-                  className="bg-secondary text-white px-6 py-2.5 rounded-lg hover:bg-secondary-dark transition-colors"
+                  className="bg-[#14532D] text-white px-6 py-2.5 rounded-lg hover:bg-[#0F3D22] transition-colors"
                 >
                   Simpan Perubahan
                 </button>
@@ -1122,7 +1138,7 @@ export default function TechnicianDashboard() {
                   </p>
                   <button
                     onClick={handleRoleRequest}
-                    className="bg-secondary text-white px-6 py-2.5 rounded-lg hover:bg-secondary-dark transition-colors"
+                    className="bg-[#14532D] text-white px-6 py-2.5 rounded-lg hover:bg-[#0F3D22] transition-colors"
                   >
                     Minta Jadi Admin
                   </button>
@@ -1144,7 +1160,7 @@ export default function TechnicianDashboard() {
                 </div>
                 <button
                   onClick={toggleTheme}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${isDark ? 'bg-secondary' : 'bg-gray-300'}`}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${isDark ? 'bg-[#14532D]' : 'bg-gray-300'}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${isDark ? 'translate-x-6' : ''}`} />
                 </button>
@@ -1221,145 +1237,85 @@ export default function TechnicianDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
-      {/* Sidebar - Desktop */}
-      <div className="hidden md:flex w-72 bg-primary dark:bg-gray-800 flex-col transition-colors">
-        <div className="p-6 border-b border-gray-800 dark:border-gray-700">
-          <h1 className="text-xl font-bold text-white tracking-tight">Absensi Teknisi</h1>
-          <p className="text-sm text-gray-400 mt-1">Teknisi Panel</p>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
+    <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-900">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
+        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-sm font-semibold text-[#FAF6EC]">
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                user.name.charAt(0).toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{user.name}</p>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">Teknisi</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
             <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
-                activeTab === item.id
-                  ? 'bg-secondary text-white shadow-lg shadow-secondary/30'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white dark:hover:bg-gray-700/50'
-              }`}
+              onClick={toggleTheme}
+              className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+              aria-label={isDark ? 'Mode terang' : 'Mode gelap'}
             >
-              {item.icon}
-              <span className="font-medium">{item.label}</span>
-              {item.id === 'chat' && unreadChats > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {unreadChats}
-                </span>
+              {isDark ? (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
               )}
             </button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-gray-800 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-              <span className="text-white font-semibold">{user.name.charAt(0).toUpperCase()}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{user.name}</p>
-              <p className="text-xs text-gray-400">Teknisi</p>
-            </div>
-            <NotificationBell />
           </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>Keluar</span>
-          </button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header - Mobile */}
-        <header className="bg-primary dark:bg-gray-800 shadow-sm md:hidden transition-colors">
-          <div className="px-4 py-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-white">Dashboard Teknisi</h1>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={toggleTheme}
-                className="p-2 text-gray-300 hover:text-white transition-colors"
-                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-              >
-                {isDark ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">{user.name.charAt(0).toUpperCase()}</span>
-                </div>
-                <span className="text-gray-300">{user.name}</span>
-              </div>
-            </div>
-          </div>
-        </header>
+      <main className="mx-auto max-w-2xl px-4 pb-8 pt-5">
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {navItems.find((m) => m.id === activeTab)?.label}
+          </h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+            {activeTab === 'home' && 'Kelola absensi harian Anda'}
+            {activeTab === 'assignments' && 'Lokasi yang harus dikunjungi hari ini'}
+            {activeTab === 'chat' && 'Chat pribadi dengan admin'}
+            {activeTab === 'profile' && 'Kelola informasi profil Anda'}
+            {activeTab === 'settings' && 'Pengaturan aplikasi'}
+          </p>
+        </div>
+        {renderContent()}
+      </main>
 
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-8 flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-primary dark:text-white">
-                  {navItems.find(m => m.id === activeTab)?.label}
-                </h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-1">
-                  {activeTab === 'home' && 'Kelola absensi harian Anda'}
-                  {activeTab === 'assignments' && 'Lokasi yang harus dikunjungi hari ini'}
-                  {activeTab === 'chat' && 'Chat pribadi dengan admin'}
-                  {activeTab === 'profile' && 'Kelola informasi profil Anda'}
-                  {activeTab === 'settings' && 'Pengaturan aplikasi'}
-                </p>
-              </div>
-              <button
-                onClick={toggleTheme}
-                className="hidden md:block p-2.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-              >
-                {isDark ? (
-                  <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-            {renderContent()}
-          </div>
-        </main>
-      </div>
-
-      {/* Bottom Navigation - Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden transition-colors">
-        <div className="flex justify-around py-2">
+      {/* Dock bawah */}
+      <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="mx-auto flex max-w-2xl items-stretch justify-between gap-1 px-2 py-1.5">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`relative flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
+              aria-current={activeTab === item.id ? 'page' : undefined}
+              className={`relative flex flex-1 flex-col items-center gap-1 rounded-lg py-1 text-[10px] font-medium transition-colors ${
                 activeTab === item.id
-                  ? 'text-secondary'
-                  : 'text-gray-500 dark:text-gray-400'
+                  ? 'text-[#14532D] dark:text-[#86B998]'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
             >
-              {item.icon}
-              <span className="text-xs mt-1">{item.label}</span>
+              <span
+                className={`grid h-8 w-12 place-items-center rounded-lg transition-colors ${
+                  activeTab === item.id ? 'bg-[#E8EFE8] dark:bg-[#1F3A2A]' : ''
+                }`}
+              >
+                {item.icon}
+              </span>
+              {item.label}
               {item.id === 'chat' && unreadChats > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                <span className="absolute right-1 top-0 rounded-full bg-[#F2C230] px-1.5 text-[10px] font-semibold text-[#3F2D00]">
                   {unreadChats}
                 </span>
               )}
@@ -1367,6 +1323,7 @@ export default function TechnicianDashboard() {
           ))}
         </div>
       </nav>
+
 
       {/* Review Dokumentasi Modal */}
       {isReviewOpen && (
@@ -1404,7 +1361,7 @@ export default function TechnicianDashboard() {
                     </button>
                     <button
                       onClick={() => setReviewFontScale(1.0)}
-                      className="px-3 py-2 text-sm font-bold bg-secondary/10 text-secondary hover:bg-secondary/20 rounded-lg transition-colors border border-secondary/20 ml-1"
+                      className="px-3 py-2 text-sm font-bold bg-[#E8EFE8] dark:bg-[#1F3A2A] text-secondary hover:bg-secondary/20 rounded-lg transition-colors border border-secondary/20 ml-1"
                     >
                       Reset
                     </button>
