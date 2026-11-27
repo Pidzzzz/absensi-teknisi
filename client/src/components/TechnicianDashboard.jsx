@@ -1198,8 +1198,9 @@ export default function TechnicianDashboard() {
 
       case 'chat':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 h-[calc(100vh-14rem)]">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Chat dengan Admin</h2>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Chat dengan Admin</h2>
+            <div className="h-[calc(100vh-17rem)] min-h-[360px]">
             {adminUser ? (
               <ChatBox
                 targetUser={adminUser}
@@ -1207,11 +1208,12 @@ export default function TechnicianDashboard() {
                 embedded={true}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
-                <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm mt-3">Memuat...</p>
+              <div className="flex h-full flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#14532D] border-t-transparent" />
+                <p className="mt-3 text-sm">Memuat...</p>
               </div>
             )}
+            </div>
           </div>
         )
 

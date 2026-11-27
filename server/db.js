@@ -9,7 +9,8 @@ db.exec(`
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('admin', 'technician'))
+    role TEXT NOT NULL CHECK(role IN ('admin', 'technician')),
+    username TEXT UNIQUE
   );
 
   CREATE TABLE IF NOT EXISTS attendance (
@@ -87,6 +88,8 @@ db.exec(`
     province TEXT,
     site_id TEXT,
     address TEXT,
+    is_active INTEGER DEFAULT 1,
+    deactivation_reason TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -206,5 +209,67 @@ try {
 } catch (e) {
   console.error('Migration attendance status failed:', e);
 }
+
+// Migration: add username column if missing
+try {
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('username')) {
+    db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+    console.log('Migration: Added username to users');
+  }
+} catch (e) {
+  console.error('Migration username failed:', e);
+}
+
+// Migration: add is_active column to locations if missing
+try {
+  const locCols = db.prepare("PRAGMA table_info(locations)").all().map(c => c.name);
+  if (!locCols.includes('is_active')) {
+    db.exec("ALTER TABLE locations ADD COLUMN is_active INTEGER DEFAULT 1");
+    console.log('Migration: Added is_active to locations');
+  }
+  if (!locCols.includes('deactivation_reason')) {
+    db.exec("ALTER TABLE locations ADD COLUMN deactivation_reason TEXT");
+    console.log('Migration: Added deactivation_reason to locations');
+  }
+} catch (e) {
+  console.error('Migration is_active/deactivation_reason failed:', e);
+}
+
+// Migration: add avatar column to users if missing
+try {
+  const userCols2 = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols2.includes('avatar')) {
+    db.exec("ALTER TABLE users ADD COLUMN avatar TEXT");
+    console.log('Migration: Added avatar to users');
+  }
+} catch (e) {
+  console.error('Migration avatar failed:', e);
+}
+
+// Chat tables
+db.exec(`
+  CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER NOT NULL,
+    technician_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_message_at TEXT,
+    FOREIGN KEY (admin_id) REFERENCES users(id),
+    FOREIGN KEY (technician_id) REFERENCES users(id),
+    UNIQUE(admin_id, technician_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    sender_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+    FOREIGN KEY (sender_id) REFERENCES users(id)
+  );
+`);
 
 module.exports = db;

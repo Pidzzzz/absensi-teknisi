@@ -2851,8 +2851,8 @@ export default function AdminDashboard() {
       case 'chat':
         const techUsers = users.filter(u => u.role === 'technician')
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Chat Pribadi</h2>
+          <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+            <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Chat Pribadi</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 {techUsers.length === 0 ? (
@@ -2866,7 +2866,7 @@ export default function AdminDashboard() {
                         onClick={() => setChatTechnician({ id: tech.id, name: tech.name })}
                         className={`w-full p-4 rounded-lg text-left transition-all border ${
                           active
-                            ? 'bg-secondary/10 border-secondary'
+                            ? 'bg-[#E8EFE8] border-[#14532D] dark:bg-[#1F3A2A]'
                             : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
                         }`}
                       >

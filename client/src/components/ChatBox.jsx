@@ -94,11 +94,11 @@ export default function ChatBox({ targetUser, onClose, embedded = false }) {
   if (!targetUser) return null
 
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-800 ${embedded ? 'h-full' : 'h-[500px]'} rounded-xl shadow-lg border border-gray-200 dark:border-gray-700`}>
+    <div className={`flex flex-col bg-white dark:bg-gray-800 ${embedded ? 'h-full' : 'h-[500px]'} rounded-xl border border-gray-200 dark:border-gray-700`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-secondary/5 rounded-t-xl">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-[#FAF6EC] rounded-t-xl dark:border-gray-700 dark:bg-gray-700/40">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#14532D] rounded-full flex items-center justify-center">
             <span className="text-white font-semibold">{targetUser.name.charAt(0).toUpperCase()}</span>
           </div>
           <div>
@@ -124,7 +124,7 @@ export default function ChatBox({ targetUser, onClose, embedded = false }) {
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 dark:bg-gray-900/50">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-6 h-6 border-2 border-[#14532D] border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
@@ -142,7 +142,7 @@ export default function ChatBox({ targetUser, onClose, embedded = false }) {
               <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-2' : 'mt-0.5'}`}>
                 <div className={`flex items-end gap-2 max-w-[80%] ${isMine ? 'flex-row-reverse' : ''}`}>
                   {showAvatar ? (
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white ${isMine ? 'bg-secondary' : 'bg-gray-400'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white ${isMine ? 'bg-[#14532D]' : 'bg-gray-400'}`}>
                       {msg.sender_name.charAt(0).toUpperCase()}
                     </div>
                   ) : (
@@ -150,14 +150,14 @@ export default function ChatBox({ targetUser, onClose, embedded = false }) {
                   )}
                   <div>
                     {showAvatar && (
-                      <p className={`text-xs mb-0.5 ${isMine ? 'text-right' : ''} ${isMine ? 'text-secondary' : 'text-gray-500'}`}>
+                      <p className={`text-xs mb-0.5 ${isMine ? 'text-right text-[#14532D] dark:text-[#86B998]' : 'text-gray-500'}`}>
                         {isMine ? 'Anda' : msg.sender_name}
                       </p>
                     )}
                     <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                       isMine
-                        ? 'bg-secondary text-white rounded-br-md'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-bl-md'
+                        ? 'bg-[#14532D] text-[#FAF6EC] rounded-br-md'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md'
                     }`}>
                       {msg.content}
                     </div>
@@ -183,12 +183,12 @@ export default function ChatBox({ targetUser, onClose, embedded = false }) {
             onKeyDown={handleKeyDown}
             placeholder="Ketik pesan..."
             rows={1}
-            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-secondary/50 resize-none text-sm"
+            className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#14532D]/30 resize-none text-sm"
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="px-4 py-2.5 bg-secondary hover:bg-secondary-dark disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center gap-2"
+            className="px-4 py-2.5 bg-[#14532D] hover:bg-[#0F3D22] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-colors flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
