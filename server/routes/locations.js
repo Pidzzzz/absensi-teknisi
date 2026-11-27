@@ -37,7 +37,11 @@ const upload = multer({
 
 router.get('/', (req, res) => {
   try {
-    const locations = db.prepare('SELECT * FROM locations ORDER BY created_at DESC').all();
+    const { active_only } = req.query;
+    let query = 'SELECT * FROM locations';
+    if (active_only === 'true') query += ' WHERE is_active = 1';
+    query += ' ORDER BY created_at DESC';
+    const locations = db.prepare(query).all();
     res.json(locations);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -68,6 +72,19 @@ router.delete('/', (req, res) => {
   try {
     db.prepare('DELETE FROM locations').run();
     res.json({ message: 'Semua lokasi berhasil dihapus' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/:id/toggle', (req, res) => {
+  try {
+    const loc = db.prepare('SELECT * FROM locations WHERE id = ?').get(req.params.id);
+    if (!loc) return res.status(404).json({ error: 'Lokasi tidak ditemukan' });
+    const newStatus = loc.is_active ? 0 : 1;
+    const reason = newStatus === 0 ? (req.body.reason || '') : '';
+    db.prepare('UPDATE locations SET is_active = ?, deactivation_reason = ? WHERE id = ?').run(newStatus, reason, req.params.id);
+    res.json({ id: loc.id, is_active: newStatus, deactivation_reason: reason, name: loc.name });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

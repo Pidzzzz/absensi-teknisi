@@ -18,13 +18,11 @@ export function validateName(name) {
   return { valid: errors.length === 0, errors }
 }
 
-export function validateLoginForm(email, password) {
+export function validateLoginForm(identifier, password) {
   const errors = {}
   
-  if (!email) {
-    errors.email = 'Email wajib diisi'
-  } else if (!validateEmail(email)) {
-    errors.email = 'Format email tidak valid'
+  if (!identifier) {
+    errors.identifier = 'Email atau Username wajib diisi'
   }
   
   if (!password) {
@@ -36,7 +34,7 @@ export function validateLoginForm(email, password) {
   return { valid: Object.keys(errors).length === 0, errors }
 }
 
-export function validateRegisterForm(name, email, password) {
+export function validateRegisterForm(name, email, password, username) {
   const errors = {}
   
   const nameValidation = validateName(name)
@@ -46,6 +44,10 @@ export function validateRegisterForm(name, email, password) {
     errors.email = 'Email wajib diisi'
   } else if (!validateEmail(email)) {
     errors.email = 'Format email tidak valid'
+  }
+  
+  if (username && (username.length < 3 || username.length > 50)) {
+    errors.username = 'Username 3-50 karakter'
   }
   
   const passwordValidation = validatePassword(password)

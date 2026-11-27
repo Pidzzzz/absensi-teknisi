@@ -297,10 +297,10 @@ router.get('/download/:filename', (req, res) => {
 
 router.get('/all-uploads', (req, res) => {
   try {
-    const { assignment_id, review_status } = req.query;
+    const { assignment_id, review_status, location_id } = req.query;
     let query = `
       SELECT du.*, di.name as item_name, di.description as item_description,
-             u.name as user_name, a.visit_date, l.name as location_name, l.site_id
+             u.name as user_name, a.visit_date, l.name as location_name, l.site_id, l.id as location_id
       FROM documentation_uploads du
       JOIN documentation_items di ON du.item_id = di.id
       JOIN users u ON du.user_id = u.id
@@ -311,6 +311,7 @@ router.get('/all-uploads', (req, res) => {
     const params = [];
     if (assignment_id) { query += ' AND du.assignment_id = ?'; params.push(assignment_id); }
     if (review_status) { query += ' AND du.review_status = ?'; params.push(review_status); }
+    if (location_id) { query += ' AND l.id = ?'; params.push(location_id); }
     query += ' ORDER BY du.uploaded_at DESC';
     const uploads = db.prepare(query).all(...params);
     res.json(uploads);
