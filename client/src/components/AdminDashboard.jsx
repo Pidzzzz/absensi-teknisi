@@ -52,7 +52,7 @@ export default function AdminDashboard() {
   const { isDark, toggleTheme } = useTheme()
   const toast = useToast()
   const [activeMenu, setActiveMenu] = useState('attendance')
-  const [navOpen, setNavOpen] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 1024))
+  const [navOpen, setNavOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('semua')
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
@@ -2626,26 +2626,36 @@ export default function AdminDashboard() {
           navOpen ? 'w-60 translate-x-0' : 'w-[76px] -translate-x-full'
         }`}
       >
-        {/* Brand */}
-        <div className={`flex items-center gap-2.5 border-b border-white/5 ${navOpen ? 'h-16 px-4' : 'h-16 justify-center px-0'}`}>
-          <div className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-[#FAF6EC] text-sm font-bold text-[#14532D]">
-            A
-          </div>
-          {navOpen && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#FAF6EC]">Absensi</p>
-              <p className="text-[11px] text-[#78716C]">Panel admin</p>
+        {/* Profil pengguna */}
+        <div className={`flex items-center border-b border-white/5 ${navOpen ? 'h-16 px-4' : 'h-16 justify-center px-0'}`}>
+          <button
+            onClick={() => setActiveMenu('profile')}
+            className="flex min-w-0 items-center gap-2.5 rounded-lg text-left"
+            title={navOpen ? undefined : user.name}
+          >
+            <div className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-sm font-semibold text-[#FAF6EC]">
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                user.name.charAt(0).toUpperCase()
+              )}
             </div>
-          )}
+            {navOpen && (
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold text-[#FAF6EC]">{user.name}</p>
+                <p className="text-[11px] text-[#78716C]">Administrator</p>
+              </div>
+            )}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 overflow-y-auto ${navOpen ? 'px-3 py-4' : 'px-2 py-4'}`}>
+        <nav className={`flex-1 overflow-y-auto [scrollbar-width:thin] ${navOpen ? 'px-3 py-3' : 'px-2 py-3'}`}>
           {[
             { label: 'Operasional', ids: ['chat', 'attendance', 'technicians'] },
             { label: 'Manajemen', ids: ['reports', 'locations', 'settings', 'profile'] },
           ].map((group) => (
-            <div key={group.label} className="mb-6 last:mb-0">
+            <div key={group.label} className="mb-5 last:mb-0">
               {navOpen && (
                 <p className="mb-2 px-2 text-[10px] tracking-[0.12em] text-[#6B625A]">{group.label.toUpperCase()}</p>
               )}
@@ -2698,27 +2708,6 @@ export default function AdminDashboard() {
 
         {/* Footer */}
         <div className={`space-y-1 border-t border-white/5 ${navOpen ? 'p-3' : 'px-2 py-3'}`}>
-          <button
-            onClick={() => setActiveMenu('profile')}
-            className={`flex w-full items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-white/5 ${
-              navOpen ? '' : 'justify-center'
-            }`}
-          >
-            <div className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-xs font-semibold text-[#FAF6EC]">
-              {user.avatar ? (
-                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
-              ) : (
-                user.name.charAt(0).toUpperCase()
-              )}
-            </div>
-            {navOpen && (
-              <div className="min-w-0 text-left">
-                <p className="truncate text-[13px] text-[#FAF6EC]">{user.name}</p>
-                <p className="text-[11px] text-[#78716C]">Administrator</p>
-              </div>
-            )}
-          </button>
-
           <button
             onClick={() => setNavOpen(!navOpen)}
             className={`hidden w-full items-center gap-2.5 rounded-lg p-2 text-[#A8A29E] transition-colors hover:bg-white/5 hover:text-[#FAF6EC] lg:flex ${
