@@ -59,6 +59,7 @@ export default function AdminDashboard() {
   const [reportDays, setReportDays] = useState(7)
   const [reportRows, setReportRows] = useState([])
   const [reportLoading, setReportLoading] = useState(false)
+  const [todayTasks, setTodayTasks] = useState([])
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
   const [roleRequests, setRoleRequests] = useState([])
@@ -679,6 +680,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeMenu === 'reports') loadReport(reportDays)
   }, [activeMenu, reportDays])
+
+  useEffect(() => {
+    if (activeMenu !== 'reports') return
+    api
+      .get(`/assignments?date=${new Date().toISOString().split('T')[0]}`)
+      .then((response) => setTodayTasks(response.data))
+      .catch((error) => console.error('Failed to load today tasks:', error))
+  }, [activeMenu])
 
   const reportTotals = reportRows.reduce(
     (acc, row) => ({
@@ -1345,6 +1354,72 @@ export default function AdminDashboard() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-wrap items-start justify-between gap-2 border-b border-gray-100 p-5 dark:border-gray-700">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Tugas hari ini per lokasi</h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {todayTasks.length} tugas · {todayTasks.filter((t) => t.status === 'completed').length} selesai ·{' '}
+                    {new Set(todayTasks.map((t) => t.location_id)).size} lokasi
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#FAF6EC] px-2.5 py-1 text-[11px] font-medium text-[#14532D] dark:bg-gray-700 dark:text-gray-200">
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </span>
+              </div>
+
+              {todayTasks.length === 0 ? (
+                <div className="py-12 text-center text-sm text-gray-400">Belum ada tugas untuk hari ini</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-gray-400">
+                        <th className="py-2.5 pl-5 pr-2 text-left font-medium">Site</th>
+                        <th className="px-2 py-2.5 text-left font-medium">Lokasi</th>
+                        <th className="px-2 py-2.5 text-left font-medium">Teknisi</th>
+                        <th className="py-2.5 pl-2 pr-5 text-right font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {[...todayTasks]
+                        .sort((a, b) => String(a.site_id).localeCompare(String(b.site_id)) || a.user_name.localeCompare(b.user_name))
+                        .map((task) => {
+                          const badge =
+                            task.status === 'completed'
+                              ? { dot: 'bg-[#15803D]', label: 'Selesai' }
+                              : task.status === 'in_progress'
+                                ? { dot: 'bg-[#B45309]', label: 'Dikerjakan' }
+                                : task.status === 'cancelled'
+                                  ? { dot: 'bg-[#B91C1C]', label: 'Dibatalkan' }
+                                  : { dot: 'bg-[#A8A29E]', label: 'Belum dikerjakan' }
+                          return (
+                            <tr key={task.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                              <td className="py-3 pl-5 pr-2 font-mono text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                                {task.site_id || '—'}
+                              </td>
+                              <td className="px-2 py-3">
+                                <span className="block font-medium text-gray-900 dark:text-white">{task.location_name}</span>
+                                {task.province && (
+                                  <span className="text-[11px] text-gray-400">{task.province}</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-3 text-gray-600 dark:text-gray-300">{task.user_name}</td>
+                              <td className="py-3 pl-2 pr-5 text-right">
+                                <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
+                                  {badge.label}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
                     </tbody>
                   </table>
                 </div>
