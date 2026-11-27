@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const toast = useToast()
   const [activeMenu, setActiveMenu] = useState('attendance')
   const [navOpen, setNavOpen] = useState(false)
+  const [navHover, setNavHover] = useState(false)
+  const navExpanded = navOpen || navHover
   const [statusFilter, setStatusFilter] = useState('semua')
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
@@ -2622,16 +2624,20 @@ export default function AdminDashboard() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[#1C1917] transition-[width] duration-200 lg:sticky lg:top-0 ${
-          navOpen ? 'w-60' : 'w-[76px]'
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[#1C1917] transition-[width] duration-200 ${
+          navExpanded ? 'w-60 shadow-2xl' : 'w-[76px]'
         }`}
+        onMouseEnter={() => {
+          if (window.innerWidth >= 1024) setNavHover(true)
+        }}
+        onMouseLeave={() => setNavHover(false)}
       >
         {/* Profil pengguna */}
-        <div className={`flex items-center border-b border-white/5 ${navOpen ? 'h-16 px-4' : 'h-16 justify-center px-0'}`}>
+        <div className={`flex items-center border-b border-white/5 ${navExpanded ? 'h-16 px-4' : 'h-16 justify-center px-0'}`}>
           <button
             onClick={() => setActiveMenu('profile')}
             className="flex min-w-0 items-center gap-2.5 rounded-lg text-left"
-            title={navOpen ? undefined : user.name}
+            title={navExpanded ? undefined : user.name}
           >
             <div className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-sm font-semibold text-[#FAF6EC]">
               {user.avatar ? (
@@ -2640,7 +2646,7 @@ export default function AdminDashboard() {
                 user.name.charAt(0).toUpperCase()
               )}
             </div>
-            {navOpen && (
+            {navExpanded && (
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-semibold text-[#FAF6EC]">{user.name}</p>
                 <p className="text-[11px] text-[#78716C]">Administrator</p>
@@ -2650,13 +2656,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 overflow-y-auto [scrollbar-width:thin] ${navOpen ? 'px-3 py-3' : 'px-2 py-3'}`}>
+        <nav className={`flex-1 overflow-y-auto [scrollbar-width:thin] ${navExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
           {[
             { label: 'Operasional', ids: ['chat', 'attendance', 'technicians'] },
             { label: 'Manajemen', ids: ['reports', 'locations', 'settings', 'profile'] },
           ].map((group) => (
             <div key={group.label} className="mb-5 last:mb-0">
-              {navOpen && (
+              {navExpanded && (
                 <p className="mb-2 px-2 text-[10px] tracking-[0.12em] text-[#6B625A]">{group.label.toUpperCase()}</p>
               )}
               <div className="space-y-1">
@@ -2672,10 +2678,10 @@ export default function AdminDashboard() {
                         setActiveMenu(id)
                         if (window.innerWidth < 1024) setNavOpen(false)
                       }}
-                      title={navOpen ? undefined : item.label}
+                      title={navExpanded ? undefined : item.label}
                       aria-current={active ? 'page' : undefined}
                       className={`relative flex w-full items-center gap-3 rounded-lg transition-colors ${
-                        navOpen ? 'px-3 py-2' : 'justify-center px-0 py-2'
+                        navExpanded ? 'px-3 py-2' : 'justify-center px-0 py-2'
                       } ${
                         active
                           ? 'bg-[#14532D] text-[#FAF6EC]'
@@ -2683,9 +2689,9 @@ export default function AdminDashboard() {
                       }`}
                     >
                       {item.icon}
-                      {navOpen && <span className="flex-1 text-left text-[13px] font-medium">{item.label}</span>}
+                      {navExpanded && <span className="flex-1 text-left text-[13px] font-medium">{item.label}</span>}
                       {badge > 0 &&
-                        (navOpen ? (
+                        (navExpanded ? (
                           <span
                             className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
                               id === 'attendance'
@@ -2707,29 +2713,11 @@ export default function AdminDashboard() {
         </nav>
 
         {/* Footer */}
-        <div className={`space-y-1 border-t border-white/5 ${navOpen ? 'p-3' : 'px-2 py-3'}`}>
-          <button
-            onClick={() => setNavOpen(!navOpen)}
-            className={`hidden w-full items-center gap-2.5 rounded-lg p-2 text-[#A8A29E] transition-colors hover:bg-white/5 hover:text-[#FAF6EC] lg:flex ${
-              navOpen ? '' : 'justify-center'
-            }`}
-            aria-label={navOpen ? 'Tutup menu' : 'Buka menu'}
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d={navOpen ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'}
-              />
-            </svg>
-            {navOpen && <span className="text-[13px]">Tutup menu</span>}
-          </button>
-
+        <div className={`space-y-1 border-t border-white/5 ${navExpanded ? 'p-3' : 'px-2 py-3'}`}>
           <button
             onClick={logout}
             className={`flex w-full items-center gap-2.5 rounded-lg p-2 text-[#A8A29E] transition-colors hover:bg-white/5 hover:text-[#FAF6EC] ${
-              navOpen ? '' : 'justify-center'
+              navExpanded ? '' : 'justify-center'
             }`}
             aria-label="Keluar"
           >
@@ -2741,17 +2729,17 @@ export default function AdminDashboard() {
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
               />
             </svg>
-            {navOpen && <span className="text-[13px]">Keluar</span>}
+            {navExpanded && <span className="text-[13px]">Keluar</span>}
           </button>
 
-          <div className={navOpen ? '' : 'flex justify-center'}>
+          <div className={navExpanded ? '' : 'flex justify-center'}>
             <NotificationBell onNotificationClick={handleNotificationClick} />
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="ml-[76px] min-w-0 flex-1 p-4 sm:p-8 lg:ml-0">
+      <div className="ml-[76px] min-w-0 flex-1 p-4 sm:p-8">
                 <div className="mx-auto max-w-[1440px]">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
