@@ -6,6 +6,7 @@ import api from '../utils/api'
 import NotificationBell from './NotificationBell'
 import ChatBox from './ChatBox'
 import Ikon from './Ikon'
+import Pilih from './Pilih'
 
 const menuItems = [
   { id: 'chat', label: 'Chat', icon: (
@@ -1939,34 +1940,30 @@ export default function AdminDashboard() {
                   <form onSubmit={handleAssign} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Teknisi</label>
-                      <select
+                      <Pilih
                         value={assignUserId}
-                        onChange={(e) => setAssignUserId(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-                        required
-                      >
-                        <option value="">Pilih Teknisi</option>
-                        {users.filter(u => u.role === 'technician').map(u => (
-                          <option key={u.id} value={u.id}>{u.name}</option>
-                        ))}
-                      </select>
+                        onChange={setAssignUserId}
+                        placeholder="Pilih Teknisi"
+                        options={users
+                          .filter((u) => u.role === 'technician')
+                          .map((u) => ({ value: u.id, label: u.name }))}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Lokasi</label>
-                      <select
+                      <Pilih
                         value={assignLocationId}
-                        onChange={(e) => setAssignLocationId(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-                        required
-                      >
-                        <option value="">Pilih Lokasi</option>
-                        {locations.filter(loc => loc.is_active !== 0).map(loc => (
-                          <option key={loc.id} value={loc.id}>{loc.name} ({loc.site_id || '-'})</option>
-                        ))}
-                        {locations.filter(loc => loc.is_active === 0).map(loc => (
-                          <option key={`inactive-${loc.id}`} value={loc.id}>{loc.name} ({loc.site_id || '-'}) - Nonaktif</option>
-                        ))}
-                      </select>
+                        onChange={setAssignLocationId}
+                        placeholder="Pilih Lokasi"
+                        options={[...locations]
+                          .sort((a, b) => (a.is_active === 0 ? 1 : 0) - (b.is_active === 0 ? 1 : 0) || a.name.localeCompare(b.name))
+                          .map((loc) => ({
+                            value: loc.id,
+                            label: loc.name,
+                            hint: loc.site_id || '-',
+                            badge: loc.is_active === 0 ? 'Nonaktif' : undefined,
+                          }))}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Tipe Penugasan</label>
@@ -2003,7 +2000,7 @@ export default function AdminDashboard() {
                     <div>
                       <button
                         type="submit"
-                        className="w-full px-5 py-2.5 bg-secondary text-white rounded-lg hover:bg-secondary-dark transition-colors text-sm font-medium"
+                        className="w-full px-5 py-2.5 bg-[#14532D] text-[#FAF6EC] rounded-lg hover:bg-[#0F3D22] transition-colors text-sm font-medium"
                       >
                         Tugaskan
                       </button>
