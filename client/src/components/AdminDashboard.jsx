@@ -2625,7 +2625,7 @@ export default function AdminDashboard() {
       )}
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[#1C1917] transition-[width] duration-200 ${
-          navExpanded ? 'w-60 shadow-2xl' : 'w-[76px]'
+          navExpanded ? 'w-60' : 'w-[76px]'
         }`}
         onMouseEnter={() => {
           if (window.innerWidth >= 1024) setNavHover(true)
@@ -2739,7 +2739,11 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <div className="ml-[76px] min-w-0 flex-1 p-4 sm:p-8">
+      <div
+        className={`ml-[76px] min-w-0 flex-1 p-4 transition-[margin] duration-200 sm:p-8 ${
+          navHover ? 'lg:ml-60' : 'lg:ml-[76px]'
+        }`}
+      >
                 <div className="mx-auto max-w-[1440px]">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
