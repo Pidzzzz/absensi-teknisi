@@ -52,6 +52,8 @@ export default function AdminDashboard() {
   const { isDark, toggleTheme } = useTheme()
   const toast = useToast()
   const [activeMenu, setActiveMenu] = useState('attendance')
+  const [navOpen, setNavOpen] = useState(() => (typeof window === 'undefined' ? true : window.innerWidth >= 1024))
+  const [statusFilter, setStatusFilter] = useState('semua')
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
   const [roleRequests, setRoleRequests] = useState([])
@@ -620,240 +622,336 @@ export default function AdminDashboard() {
     }
   }
 
+  const locationByUser = {}
+  records.forEach((r) => {
+    if (r.location_name && !locationByUser[r.user_id]) locationByUser[r.user_id] = r.location_name
+  })
+  const filteredSummary = dailySummary.filter((s) => statusFilter === 'semua' || s.status === statusFilter)
+  const attentionCount =
+    dailySummary.filter((s) => s.status === 'tidak masuk' || s.status === 'belum checkout').length +
+    excuses.length +
+    passwordRequests.filter((r) => r.status === 'pending').length
+  const locationRows = Object.values(
+    dailySummary.reduce((acc, s) => {
+      const name = locationByUser[s.user_id]
+      if (!name) return acc
+      acc[name] = acc[name] || { name, hadir: 0, total: 0 }
+      acc[name].total += 1
+      if (s.status === 'hadir') acc[name].hadir += 1
+      return acc
+    }, {}),
+  )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5)
+
   const renderContent = () => {
     switch (activeMenu) {
       case 'attendance':
         return (
-          <div className="space-y-6">
-            {/* Daily Summary Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Ringkasan Harian</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(selectedDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-                <button
-                  onClick={checkMissingCheckouts}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  Cek Tidak Checkout
-                </button>
-              </div>
-              
-              {summaryLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="ml-2 text-gray-500">Memuat...</span>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 dark:text-green-400">Hadir</p>
-                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                          {dailySummary.filter(s => s.status === 'hadir').length}
-                        </p>
-                      </div>
-                    </div>
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 space-y-6">
+              {/* Absensi hari ini */}
+              <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+                  <div>
+                    <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Absensi hari ini</h2>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {dailySummary.length} teknisi · {dailySummary.filter((s) => s.status === 'hadir').length} sudah masuk
+                    </p>
                   </div>
-                  
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/40 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-amber-600 dark:text-amber-400">Belum Checkout</p>
-                        <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-                          {dailySummary.filter(s => s.status === 'belum checkout').length}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l2-2m-2 2l-2-2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm text-red-600 dark:text-red-400">Tidak Masuk</p>
-                        <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                          {dailySummary.filter(s => s.status === 'tidak masuk').length}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  <button
+                    onClick={checkMissingCheckouts}
+                    className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#14532D] px-3 text-xs font-medium text-[#FAF6EC] transition-colors hover:bg-[#0F3D22]"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Cek tidak checkout
+                  </button>
                 </div>
-              )}
-              
-              {/* Detail List */}
-              {dailySummary.length > 0 && (
-                <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Detail Per Teknisi:</h3>
-                  <div className="space-y-2">
-                    {dailySummary.map(item => (
-                      <div key={item.user_id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${
-                            item.status === 'hadir' ? 'bg-green-500' :
-                            item.status === 'belum checkout' ? 'bg-amber-500' :
-                            item.status === 'tidak masuk' ? 'bg-red-500' :
-                            'bg-gray-400'
-                          }`}></div>
-                          <span className="font-medium text-gray-800 dark:text-white">{item.name}</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          {item.check_in && (
-                            <span className="text-green-600 dark:text-green-400">
-                              In: {new Date(item.check_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                          {item.check_out ? (
-                            <span className="text-red-600 dark:text-red-400">
-                              Out: {new Date(item.check_out).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          ) : item.check_in ? (
-                            <span className="text-amber-600 dark:text-amber-400">Belum Out</span>
-                          ) : null}
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            item.status === 'hadir' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                            item.status === 'belum checkout' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
-                            item.status === 'tidak masuk' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                            'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {item.status === 'hadir' ? 'Hadir' :
-                             item.status === 'belum checkout' ? 'Belum Checkout' :
-                             item.status === 'tidak masuk' ? 'Tidak Masuk' : 'Tidak Ada Data'}
-                          </span>
-                          {item.status === 'tidak masuk' && (
-                            <button
-                              onClick={() => openWarningModal(item)}
-                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
-                            >
-                              Tegur
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Filter</h2>
-              <div className="flex flex-wrap gap-4">
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Tanggal</label>
+                <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+                  {[
+                    ['semua', 'Semua'],
+                    ['hadir', 'Hadir'],
+                    ['belum checkout', 'Belum checkout'],
+                    ['tidak masuk', 'Tidak masuk'],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setStatusFilter(value)}
+                      className={`h-8 rounded-full px-3 text-xs font-medium transition-colors ${
+                        statusFilter === value
+                          ? 'bg-[#14532D] text-[#FAF6EC]'
+                          : 'bg-[#FAF6EC] text-[#14532D] hover:bg-[#F2EBD9] dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <div className="flex-1" />
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                    className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:border-[#14532D] focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                   />
-                </div>
-                <div className="flex-1 min-w-[200px]">
-                  <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Teknisi</label>
                   <select
                     value={selectedUser}
                     onChange={(e) => setSelectedUser(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary/50 focus:border-secondary bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+                    className="h-8 max-w-[160px] rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:border-[#14532D] focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                   >
-                    <option value="">Semua Teknisi</option>
-                    {users.filter(u => u.role === 'technician').map(u => (
+                    <option value="">Semua teknisi</option>
+                    {users.filter((u) => u.role === 'technician').map((u) => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
                   </select>
                 </div>
+
+                {summaryLoading ? (
+                  <div className="flex items-center justify-center gap-2 border-t border-gray-100 py-12 text-sm text-gray-500 dark:border-gray-700">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#14532D] border-t-transparent" />
+                    Memuat...
+                  </div>
+                ) : filteredSummary.length === 0 ? (
+                  <div className="border-t border-gray-100 py-12 text-center text-sm text-gray-400 dark:border-gray-700">
+                    Tidak ada data absensi
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border-t border-gray-100 dark:border-gray-700">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-wider text-gray-400">
+                          <th className="py-2.5 pl-5 pr-2 text-left font-medium">Teknisi</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Lokasi</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Masuk</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Keluar</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Status</th>
+                          <th className="py-2.5 pl-2 pr-5 text-right font-medium">Tindakan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {filteredSummary.map((item) => {
+                          const style =
+                            item.status === 'hadir'
+                              ? { dot: 'bg-[#15803D]', label: 'Hadir' }
+                              : item.status === 'belum checkout'
+                                ? { dot: 'bg-[#B45309]', label: 'Belum checkout' }
+                                : item.status === 'tidak masuk'
+                                  ? { dot: 'bg-[#B91C1C]', label: 'Tidak masuk' }
+                                  : { dot: 'bg-[#A8A29E]', label: 'Tanpa data' }
+                          const time = (value) =>
+                            value ? new Date(value).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '—'
+                          return (
+                            <tr key={item.user_id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                              <td className="py-3 pl-5 pr-2">
+                                <div className="flex items-center gap-3">
+                                  <span className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+                                    {item.name.charAt(0).toUpperCase()}
+                                  </span>
+                                  <span className="font-medium text-gray-900 dark:text-white">{item.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-3 text-gray-600 dark:text-gray-300">{locationByUser[item.user_id] || '—'}</td>
+                              <td className="px-2 py-3 tabular-nums text-gray-900 dark:text-gray-100">{time(item.check_in)}</td>
+                              <td className="px-2 py-3 tabular-nums text-gray-900 dark:text-gray-100">{time(item.check_out)}</td>
+                              <td className="px-2 py-3">
+                                <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
+                                  {style.label}
+                                </span>
+                              </td>
+                              <td className="py-3 pl-2 pr-5 text-right">
+                                {item.status === 'tidak masuk' ? (
+                                  <button
+                                    onClick={() => openWarningModal(item)}
+                                    className="text-xs font-medium text-[#14532D] underline hover:text-[#0F3D22] dark:text-[#86B998]"
+                                  >
+                                    Tegur
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className="border-t border-gray-100 px-5 py-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  Menampilkan {filteredSummary.length} dari {dailySummary.length} teknisi
+                </div>
+              </div>
+
+              {/* Log check-in / check-out */}
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div className="border-b border-gray-100 p-5 dark:border-gray-700">
+                  <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Log check-in / check-out</h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Catatan mentah untuk tanggal terpilih</p>
+                </div>
+                {records.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-gray-400">Tidak ada catatan</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-wider text-gray-400">
+                          <th className="py-2.5 pl-5 pr-2 text-left font-medium">Teknisi</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Tipe</th>
+                          <th className="px-2 py-2.5 text-left font-medium">Waktu</th>
+                          <th className="py-2.5 pl-2 pr-5 text-left font-medium">Lokasi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {records.map((record) => (
+                          <tr key={record.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <td className="py-3 pl-5 pr-2 font-medium text-gray-900 dark:text-white">{getUserName(record.user_id)}</td>
+                            <td className="px-2 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200`}
+                              >
+                                <span className={`h-1.5 w-1.5 rounded-full ${record.type === 'check-in' ? 'bg-[#15803D]' : 'bg-[#57534E]'}`} />
+                                {record.type === 'check-in'
+                                  ? record.assignment_id
+                                    ? 'Check In Visit'
+                                    : 'Check In Masuk'
+                                  : record.assignment_id
+                                    ? 'Check Out Visit'
+                                    : 'Check Out Pulang'}
+                              </span>
+                            </td>
+                            <td className="px-2 py-3 tabular-nums text-gray-600 dark:text-gray-300">
+                              {new Date(record.timestamp).toLocaleString('id-ID')}
+                            </td>
+                            <td className="py-3 pl-2 pr-5 text-gray-500 dark:text-gray-400">
+                              <span className="block font-medium text-gray-700 dark:text-gray-300">{record.location_name || '—'}</span>
+                              {record.lat && record.lng && (
+                                <span className="text-[11px] tabular-nums text-gray-400">
+                                  {record.lat.toFixed(6)}, {record.lng.toFixed(6)}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Riwayat Absensi</h2>
-              </div>
-              {records.length === 0 ? (
-                <div className="p-12 text-center">
-                  <p className="text-gray-400">Tidak ada data absensi</p>
+            {/* Kolom kanan */}
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Ringkasan hari ini</h3>
+                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5">
+                  {[
+                    ['Hadir', dailySummary.filter((s) => s.status === 'hadir').length, 'bg-[#15803D]'],
+                    ['Belum checkout', dailySummary.filter((s) => s.status === 'belum checkout').length, 'bg-[#B45309]'],
+                    ['Tidak masuk', dailySummary.filter((s) => s.status === 'tidak masuk').length, 'bg-[#B91C1C]'],
+                    ['Tanpa data', dailySummary.filter((s) => s.status === 'tidak ada data').length, 'bg-[#A8A29E]'],
+                  ].map(([label, value, dot]) => (
+                    <div key={label}>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
+                      </div>
+                      <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{value}</p>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-700">
-                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Teknisi</th>
-                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Type</th>
-                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Waktu</th>
-                        <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Lokasi</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {records.map((record) => (
-                        <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="py-4 px-6">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
-                                <span className="text-secondary font-medium text-sm">
-                                  {getUserName(record.user_id).charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <span className="font-medium text-gray-800 dark:text-white">{getUserName(record.user_id)}</span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                              record.type === 'check-in'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            }`}>
-                              {record.type === 'check-in' 
-                                ? (record.assignment_id ? 'Check In Visit' : 'Check In Masuk') 
-                                : (record.assignment_id ? 'Check Out Visit' : 'Check Out Pulang')}
-                            </span>
-                          </td>
-                          <td className="py-4 px-6 text-gray-600 dark:text-gray-300">
-                            {new Date(record.timestamp).toLocaleString('id-ID')}
-                          </td>
-                          <td className="py-4 px-6 text-gray-500 dark:text-gray-400 text-sm">
-                            <div className="flex flex-col">
-                              {record.location_name && (
-                                <span className="font-semibold text-gray-700 dark:text-gray-300">{record.location_name}</span>
-                              )}
-                              {record.lat && record.lng ? (
-                                <span className="text-xs text-gray-400">
-                                  {record.lat.toFixed(6)}, {record.lng.toFixed(6)}
-                                </span>
-                              ) : (
-                                <span>-</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              </div>
+
+              {attentionCount > 0 && (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-700">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Perlu perhatian</h3>
+                  {attentionCount > 0 && (
+                    <span className="rounded-full bg-[#F2C230] px-2 py-0.5 text-[11px] font-semibold text-[#3F2D00]">
+                      {attentionCount}
+                    </span>
+                  )}
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {[
+                    {
+                      count: dailySummary.filter((s) => s.status === 'tidak masuk').length,
+                      label: 'teknisi tidak masuk',
+                      hint: 'Belum ada absensi hari ini',
+                      action: 'Lihat',
+                      onClick: () => setStatusFilter('tidak masuk'),
+                    },
+                    {
+                      count: dailySummary.filter((s) => s.status === 'belum checkout').length,
+                      label: 'belum checkout',
+                      hint: 'Sudah masuk, belum pulang',
+                      action: 'Lihat',
+                      onClick: () => setStatusFilter('belum checkout'),
+                    },
+                    {
+                      count: excuses.length,
+                      label: 'alasan menunggu review',
+                      hint: 'Dari pengajuan teknisi',
+                      action: 'Tinjau',
+                      onClick: () => setActiveMenu('technicians'),
+                    },
+                    {
+                      count: passwordRequests.filter((r) => r.status === 'pending').length,
+                      label: 'permintaan ubah password',
+                      hint: 'Menunggu persetujuan admin',
+                      action: 'Setujui',
+                      onClick: () => setActiveMenu('technicians'),
+                    },
+                  ]
+                    .filter((row) => row.count > 0)
+                    .map((row) => (
+                      <div key={row.label} className="p-4">
+                        <p className="text-[13px] font-medium text-gray-900 dark:text-white">
+                          {row.count} {row.label}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{row.hint}</p>
+                        <button
+                          onClick={row.onClick}
+                          className="mt-1 text-[11px] font-medium text-[#14532D] underline hover:text-[#0F3D22] dark:text-[#86B998]"
+                        >
+                          {row.action}
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              )}
+              {locationRows.length > 0 && (
+                <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Per lokasi</h3>
+                  <p className="mt-0.5 text-[11px] text-gray-400">Kehadiran hari ini</p>
+                  <div className="mt-4 space-y-3.5">
+                    {locationRows.map((row) => (
+                      <div key={row.name}>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-gray-600 dark:text-gray-300">{row.name}</span>
+                          <span className="tabular-nums font-medium text-gray-900 dark:text-white">
+                            {row.hadir}/{row.total}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+                          <div
+                            className="h-full rounded-full bg-[#14532D] dark:bg-[#86B998]"
+                            style={{ width: `${row.total ? (row.hadir / row.total) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         )
+
 
       case 'technicians':
         const pendingRequests = roleRequests.filter(r => r.status === 'pending')
@@ -2517,112 +2615,203 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
       {/* Sidebar */}
-      <div className="w-72 bg-primary dark:bg-gray-800 flex flex-col transition-colors">
-        {/* Logo & Profile */}
-        <div className="p-5 border-b border-gray-800 dark:border-gray-700">
-          <h1 className="text-xl font-bold text-white tracking-tight">Absensi Teknisi</h1>
-          <p className="text-sm text-gray-400 mt-1">Admin Panel</p>
-          {/* Profile Avatar - clickable to profile */}
-          <button
-            onClick={() => setActiveMenu('profile')}
-            className="flex items-center gap-3 mt-4 w-full text-left hover:bg-white/5 rounded-lg p-2 transition-colors group"
-          >
-            <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center overflow-hidden relative flex-shrink-0">
-              {user.avatar ? (
-                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-white font-bold text-lg">{user.name.charAt(0).toUpperCase()}</span>
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-[#1C1917] transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+          navOpen ? 'w-60 translate-x-0' : 'w-[76px] -translate-x-full'
+        }`}
+      >
+        {/* Brand */}
+        <div className={`flex items-center gap-2.5 border-b border-white/5 ${navOpen ? 'h-16 px-4' : 'h-16 justify-center px-0'}`}>
+          <div className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-[#FAF6EC] text-sm font-bold text-[#14532D]">
+            A
+          </div>
+          {navOpen && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#FAF6EC]">Absensi</p>
+              <p className="text-[11px] text-[#78716C]">Panel admin</p>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-white font-semibold truncate group-hover:text-secondary-light transition-colors">{user.name}</p>
-              <p className="text-xs text-gray-400">Administrator</p>
-            </div>
-            <svg className="w-4 h-4 text-gray-500 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveMenu(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
-                activeMenu === item.id
-                  ? 'bg-secondary text-white shadow-lg shadow-secondary/30'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white dark:hover:bg-gray-700/50'
-              }`}
-            >
-              {item.icon}
-              <span className="font-medium">{item.label}</span>
-              {item.id === 'chat' && unreadChats > 0 && (
-                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {unreadChats}
-                </span>
+        <nav className={`flex-1 overflow-y-auto ${navOpen ? 'px-3 py-4' : 'px-2 py-4'}`}>
+          {[
+            { label: 'Operasional', ids: ['chat', 'attendance', 'technicians'] },
+            { label: 'Manajemen', ids: ['reports', 'locations', 'settings', 'profile'] },
+          ].map((group) => (
+            <div key={group.label} className="mb-6 last:mb-0">
+              {navOpen && (
+                <p className="mb-2 px-2 text-[10px] tracking-[0.12em] text-[#6B625A]">{group.label.toUpperCase()}</p>
               )}
-            </button>
+              <div className="space-y-1">
+                {group.ids.map((id) => {
+                  const item = menuItems.find((m) => m.id === id)
+                  if (!item) return null
+                  const active = activeMenu === id
+                  const badge = id === 'chat' ? unreadChats : id === 'attendance' ? attentionCount : 0
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => {
+                        setActiveMenu(id)
+                        if (window.innerWidth < 1024) setNavOpen(false)
+                      }}
+                      title={navOpen ? undefined : item.label}
+                      aria-current={active ? 'page' : undefined}
+                      className={`relative flex w-full items-center gap-3 rounded-lg transition-colors ${
+                        navOpen ? 'px-3 py-2' : 'justify-center px-0 py-2'
+                      } ${
+                        active
+                          ? 'bg-[#14532D] text-[#FAF6EC]'
+                          : 'text-[#A8A29E] hover:bg-white/5 hover:text-[#FAF6EC]'
+                      }`}
+                    >
+                      {item.icon}
+                      {navOpen && <span className="flex-1 text-left text-[13px] font-medium">{item.label}</span>}
+                      {badge > 0 &&
+                        (navOpen ? (
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                              id === 'attendance'
+                                ? 'bg-[#F2C230] text-[#3F2D00]'
+                                : 'bg-white/10 text-[#C4BCB2]'
+                            }`}
+                          >
+                            {badge}
+                          </span>
+                        ) : (
+                          <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#F2C230]" />
+                        ))}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           ))}
         </nav>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-gray-800 dark:border-gray-700">
+        {/* Footer */}
+        <div className={`space-y-1 border-t border-white/5 ${navOpen ? 'p-3' : 'px-2 py-3'}`}>
+          <button
+            onClick={() => setActiveMenu('profile')}
+            className={`flex w-full items-center gap-2.5 rounded-lg p-2 transition-colors hover:bg-white/5 ${
+              navOpen ? '' : 'justify-center'
+            }`}
+          >
+            <div className="grid h-8 w-8 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-xs font-semibold text-[#FAF6EC]">
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+              ) : (
+                user.name.charAt(0).toUpperCase()
+              )}
+            </div>
+            {navOpen && (
+              <div className="min-w-0 text-left">
+                <p className="truncate text-[13px] text-[#FAF6EC]">{user.name}</p>
+                <p className="text-[11px] text-[#78716C]">Administrator</p>
+              </div>
+            )}
+          </button>
+
+          <button
+            onClick={() => setNavOpen(!navOpen)}
+            className={`hidden w-full items-center gap-2.5 rounded-lg p-2 text-[#A8A29E] transition-colors hover:bg-white/5 hover:text-[#FAF6EC] lg:flex ${
+              navOpen ? '' : 'justify-center'
+            }`}
+            aria-label={navOpen ? 'Tutup menu' : 'Buka menu'}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={navOpen ? 'M11 19l-7-7 7-7m8 14l-7-7 7-7' : 'M13 5l7 7-7 7M5 5l7 7-7 7'}
+              />
+            </svg>
+            {navOpen && <span className="text-[13px]">Tutup menu</span>}
+          </button>
+
           <button
             onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+            className={`flex w-full items-center gap-2.5 rounded-lg p-2 text-[#A8A29E] transition-colors hover:bg-white/5 hover:text-[#FAF6EC] ${
+              navOpen ? '' : 'justify-center'
+            }`}
+            aria-label="Keluar"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
             </svg>
-            <span>Keluar</span>
+            {navOpen && <span className="text-[13px]">Keluar</span>}
           </button>
-          <div className="mt-2 text-center">
+
+          <div className={navOpen ? '' : 'flex justify-center'}>
             <NotificationBell onNotificationClick={handleNotificationClick} />
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
-      <div className="flex-1 p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-primary dark:text-white">
-                {menuItems.find(m => m.id === activeMenu)?.label}
-              </h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">
-                {activeMenu === 'chat' && 'Chat pribadi dengan teknisi'}
-                {activeMenu === 'attendance' && 'Kelola data absensi teknisi'}
-                {activeMenu === 'technicians' && 'Daftar semua teknisi terdaftar'}
-                {activeMenu === 'reports' && 'Statistik dan ringkasan data'}
-                {activeMenu === 'locations' && 'Upload dan kelola data lokasi'}
-                {activeMenu === 'profile' && 'Kelola informasi profil Anda'}
-                {activeMenu === 'settings' && 'Konfigurasi aplikasi'}
-              </p>
+      <div className="flex-1 min-w-0 p-4 sm:p-8">
+                <div className="mx-auto max-w-[1440px]">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <button
+                onClick={() => setNavOpen(true)}
+                className="mt-0.5 rounded-lg border border-gray-200 bg-white p-2 text-gray-600 lg:hidden dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                aria-label="Buka menu"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  {menuItems.find((m) => m.id === activeMenu)?.label}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {
+                    {
+                      chat: 'Chat pribadi dengan teknisi',
+                      attendance: 'Kelola data absensi teknisi',
+                      technicians: 'Daftar semua teknisi terdaftar',
+                      reports: 'Statistik dan ringkasan data',
+                      locations: 'Upload dan kelola data lokasi',
+                      profile: 'Kelola informasi profil Anda',
+                      settings: 'Konfigurasi aplikasi',
+                    }[activeMenu]
+                  }
+                </p>
+              </div>
             </div>
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title={isDark ? 'Mode Terang' : 'Mode Gelap'}
-            >
-              {isDark ? (
-                <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                title={isDark ? 'Mode Terang' : 'Mode Gelap'}
+                aria-label={isDark ? 'Mode terang' : 'Mode gelap'}
+              >
+                {isDark ? (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
           {renderContent()}
         </div>
