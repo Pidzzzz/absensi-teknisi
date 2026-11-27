@@ -2622,8 +2622,8 @@ export default function AdminDashboard() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col bg-[#1C1917] transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-          navOpen ? 'w-60 translate-x-0' : 'w-[76px] -translate-x-full'
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen flex-col bg-[#1C1917] transition-[width] duration-200 lg:sticky lg:top-0 ${
+          navOpen ? 'w-60' : 'w-[76px]'
         }`}
       >
         {/* Profil pengguna */}
@@ -2751,7 +2751,7 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 p-4 sm:p-8">
+      <div className="ml-[76px] min-w-0 flex-1 p-4 sm:p-8 lg:ml-0">
                 <div className="mx-auto max-w-[1440px]">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
