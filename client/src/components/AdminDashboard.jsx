@@ -56,6 +56,9 @@ export default function AdminDashboard() {
   const [navHover, setNavHover] = useState(false)
   const navExpanded = navOpen || navHover
   const [statusFilter, setStatusFilter] = useState('semua')
+  const [reportDays, setReportDays] = useState(7)
+  const [reportRows, setReportRows] = useState([])
+  const [reportLoading, setReportLoading] = useState(false)
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
   const [roleRequests, setRoleRequests] = useState([])
@@ -646,6 +649,71 @@ export default function AdminDashboard() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
+  const loadReport = async (days) => {
+    setReportLoading(true)
+    try {
+      const dates = Array.from({ length: days }, (_, i) => {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        return d.toISOString().split('T')[0]
+      })
+      const results = await Promise.all(dates.map((date) => api.get(`/attendance/daily-summary?date=${date}`)))
+      const rows = {}
+      results.forEach((response) => {
+        response.data.forEach((item) => {
+          const row = rows[item.user_id] || (rows[item.user_id] = { id: item.user_id, name: item.name, hadir: 0, belum: 0, tidak: 0, kosong: 0 })
+          if (item.status === 'hadir') row.hadir += 1
+          else if (item.status === 'belum checkout') row.belum += 1
+          else if (item.status === 'tidak masuk') row.tidak += 1
+          else row.kosong += 1
+        })
+      })
+      setReportRows(Object.values(rows).sort((a, b) => b.hadir - a.hadir || a.name.localeCompare(b.name)))
+    } catch (error) {
+      console.error('Failed to load report:', error)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeMenu === 'reports') loadReport(reportDays)
+  }, [activeMenu, reportDays])
+
+  const reportTotals = reportRows.reduce(
+    (acc, row) => ({
+      hadir: acc.hadir + row.hadir,
+      belum: acc.belum + row.belum,
+      tidak: acc.tidak + row.tidak,
+      kosong: acc.kosong + row.kosong,
+    }),
+    { hadir: 0, belum: 0, tidak: 0, kosong: 0 },
+  )
+
+  const reportPercent = (row) => {
+    const total = row.hadir + row.belum + row.tidak + row.kosong
+    return total === 0 ? 0 : Math.round((row.hadir / total) * 100)
+  }
+
+  const exportReportCsv = () => {
+    const header = ['Teknisi', 'Hadir', 'Belum checkout', 'Tidak masuk', 'Tanpa data', 'Kehadiran (%)']
+    const lines = reportRows.map((row) => [
+      `"${row.name.replace(/"/g, '""')}"`,
+      row.hadir,
+      row.belum,
+      row.tidak,
+      row.kosong,
+      reportPercent(row),
+    ])
+    const csv = [header, ...lines].map((line) => line.join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `laporan-absensi-${reportDays}hari.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const renderContent = () => {
     switch (activeMenu) {
       case 'attendance':
@@ -1163,32 +1231,128 @@ export default function AdminDashboard() {
       case 'reports':
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-secondary p-6 rounded-xl text-white">
-                <p className="text-sm opacity-80">Total Teknisi</p>
-                <p className="text-4xl font-bold mt-2">
-                  {users.filter(u => u.role === 'technician').length}
-                </p>
+            <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Laporan kehadiran</h2>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {reportDays} hari terakhir · {reportRows.length} teknisi
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[
+                    [7, '7 hari'],
+                    [30, '30 hari'],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setReportDays(value)}
+                      className={`h-8 rounded-full px-3 text-xs font-medium transition-colors ${
+                        reportDays === value
+                          ? 'bg-[#14532D] text-[#FAF6EC]'
+                          : 'bg-[#FAF6EC] text-[#14532D] hover:bg-[#F2EBD9] dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    onClick={exportReportCsv}
+                    disabled={reportRows.length === 0}
+                    className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#14532D] px-3 text-xs font-medium text-[#FAF6EC] transition-colors hover:bg-[#0F3D22] disabled:opacity-40"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Ekspor CSV
+                  </button>
+                </div>
               </div>
-              <div className="bg-green-600 p-6 rounded-xl text-white">
-                <p className="text-sm opacity-80">Check In Hari Ini</p>
-                <p className="text-4xl font-bold mt-2">
-                  {records.filter(r => r.type === 'check-in').length}
-                </p>
-              </div>
-              <div className="bg-red-600 p-6 rounded-xl text-white">
-                <p className="text-sm opacity-80">Check Out Hari Ini</p>
-                <p className="text-4xl font-bold mt-2">
-                  {records.filter(r => r.type === 'check-out').length}
-                </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-gray-100 pt-5 dark:border-gray-700 lg:grid-cols-4">
+                {[
+                  ['Total hadir', reportTotals.hadir, 'bg-[#15803D]'],
+                  ['Tidak masuk', reportTotals.tidak, 'bg-[#B91C1C]'],
+                  ['Belum checkout', reportTotals.belum, 'bg-[#B45309]'],
+                  ['Tanpa data', reportTotals.kosong, 'bg-[#A8A29E]'],
+                ].map(([label, value, dot]) => (
+                  <div key={label}>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
+                    </div>
+                    <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{value}</p>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Ringkasan</h2>
-              <p className="text-gray-500 dark:text-gray-400">Fitur laporan lengkap akan segera hadir.</p>
+
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div className="border-b border-gray-100 p-5 dark:border-gray-700">
+                <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Rekap per teknisi</h2>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Kehadiran dihitung dari jumlah hari berstatus hadir
+                </p>
+              </div>
+
+              {reportLoading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-500">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#14532D] border-t-transparent" />
+                  Memuat laporan...
+                </div>
+              ) : reportRows.length === 0 ? (
+                <div className="py-12 text-center text-sm text-gray-400">Belum ada data untuk periode ini</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-gray-400">
+                        <th className="py-2.5 pl-5 pr-2 text-left font-medium">Teknisi</th>
+                        <th className="px-2 py-2.5 text-right font-medium">Hadir</th>
+                        <th className="px-2 py-2.5 text-right font-medium">Belum checkout</th>
+                        <th className="px-2 py-2.5 text-right font-medium">Tidak masuk</th>
+                        <th className="px-2 py-2.5 text-right font-medium">Tanpa data</th>
+                        <th className="py-2.5 pl-2 pr-5 text-left font-medium">Kehadiran</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {reportRows.map((row) => (
+                        <tr key={row.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                          <td className="py-3 pl-5 pr-2">
+                            <div className="flex items-center gap-3">
+                              <span className="grid h-8 w-8 place-items-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+                                {row.name.charAt(0).toUpperCase()}
+                              </span>
+                              <span className="font-medium text-gray-900 dark:text-white">{row.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{row.hadir}</td>
+                          <td className="px-2 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{row.belum}</td>
+                          <td className="px-2 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{row.tidak}</td>
+                          <td className="px-2 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{row.kosong}</td>
+                          <td className="py-3 pl-2 pr-5">
+                            <div className="flex items-center gap-2">
+                              <div className="h-1 w-24 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+                                <div
+                                  className="h-full rounded-full bg-[#14532D] dark:bg-[#86B998]"
+                                  style={{ width: `${reportPercent(row)}%` }}
+                                />
+                              </div>
+                              <span className="w-9 text-right text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                                {reportPercent(row)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )
+
 
       case 'profile':
         return (
