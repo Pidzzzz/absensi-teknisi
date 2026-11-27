@@ -123,11 +123,11 @@ export default function AdminDashboard() {
   const [conversations, setConversations] = useState([])
   const [unreadChats, setUnreadChats] = useState(0)
 
-  // Buka chat langsung ke percakapan terakhir saat menu Chat dipilih.
-  useEffect(() => {
-    if (activeMenu !== 'chat' || chatTechnician) return
-    if (conversations.length > 0) {
-      const first = conversations[0]
+  // Dipilih saat menu Chat diklik, supaya percakapan terakhir langsung terbuka.
+  const openDefaultChat = () => {
+    if (chatTechnician) return
+    const first = conversations[0]
+    if (first) {
       setChatTechnician({
         id: first.technician_id,
         name: first.technician_name,
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
     }
     const fallback = users.find((u) => u.role === 'technician')
     if (fallback) setChatTechnician({ id: fallback.id, name: fallback.name, email: fallback.email })
-  }, [activeMenu, chatTechnician, conversations, users])
+  }
 
   useEffect(() => {
     loadUsers()
@@ -3074,6 +3074,7 @@ export default function AdminDashboard() {
                       key={id}
                       onClick={() => {
                         setActiveMenu(id)
+                        if (id === 'chat') openDefaultChat()
                         if (window.innerWidth < 1024) setNavOpen(false)
                       }}
                       title={navExpanded ? undefined : item.label}
