@@ -61,6 +61,10 @@ export default function AdminDashboard() {
   const [reportRows, setReportRows] = useState([])
   const [reportLoading, setReportLoading] = useState(false)
   const [todayTasks, setTodayTasks] = useState([])
+  const [passwordTarget, setPasswordTarget] = useState(null)
+  const [newUserPassword, setNewUserPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const [records, setRecords] = useState([])
   const [users, setUsers] = useState([])
   const [roleRequests, setRoleRequests] = useState([])
@@ -724,6 +728,36 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url)
   }
 
+  const generatePassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const bytes = crypto.getRandomValues(new Uint32Array(10))
+    setNewUserPassword(Array.from(bytes, (byte) => chars[byte % chars.length]).join(''))
+  }
+
+  const handleChangeUserPassword = async (event) => {
+    event.preventDefault()
+    if (!passwordTarget) return
+    if (newUserPassword.length < 6) {
+      setPasswordError('Minimal 6 karakter')
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordError('')
+    try {
+      await api.put(`/auth/users/${passwordTarget.id}/password`, {
+        password: newUserPassword,
+        requester_id: user.id,
+      })
+      toast.success(`Password ${passwordTarget.name} berhasil diubah`)
+      setPasswordTarget(null)
+      setNewUserPassword('')
+    } catch (error) {
+      setPasswordError(error.response?.data?.error || 'Gagal mengubah password')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }
+
   const renderContent = () => {
     switch (activeMenu) {
       case 'attendance':
@@ -1173,7 +1207,9 @@ export default function AdminDashboard() {
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
               <div className="p-6 border-b border-gray-100 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Daftar Pengguna</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Klik role untuk mengubah</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Klik role untuk mengubah · password tersimpan terenkripsi, jadi tidak bisa dilihat — hanya bisa diganti
+                </p>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -1214,20 +1250,33 @@ export default function AdminDashboard() {
                           </select>
                         </td>
                         <td className="py-4 px-6">
-                          {u.role === 'technician' && (
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => {
-                                setChatTechnician({ id: u.id, name: u.name })
-                                setActiveMenu('chat')
+                                setPasswordTarget(u)
+                                setNewUserPassword('')
+                                setPasswordError('')
                               }}
-                              className="px-3 py-1.5 bg-secondary hover:bg-secondary-dark text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                              className="flex items-center gap-1.5 rounded-lg bg-[#FAF6EC] px-3 py-1.5 text-sm font-medium text-[#14532D] transition-colors hover:bg-[#F2EBD9] dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                              </svg>
-                              Chat
+                              <Ikon name="kunci" className="w-4 h-4" />
+                              Ubah password
                             </button>
-                          )}
+                            {u.role === 'technician' && (
+                              <button
+                                onClick={() => {
+                                  setChatTechnician({ id: u.id, name: u.name })
+                                  setActiveMenu('chat')
+                                }}
+                                className="px-3 py-1.5 bg-secondary hover:bg-secondary-dark text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                Chat
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -3516,6 +3565,77 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+      {passwordTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <form
+            onSubmit={handleChangeUserPassword}
+            className="w-full max-w-md overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 p-5 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Ubah password</h3>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {passwordTarget.name} · {passwordTarget.email}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasswordTarget(null)}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                aria-label="Tutup"
+              >
+                <Ikon name="silang" className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 p-5">
+              <p className="rounded-lg bg-[#FAF6EC] px-3 py-2 text-[11px] leading-relaxed text-[#57534E] dark:bg-gray-700 dark:text-gray-300">
+                Password lama tidak bisa ditampilkan karena disimpan sebagai hash (bcrypt). Tetapkan password baru di
+                bawah, lalu berikan ke pengguna.
+              </p>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">Password baru</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newUserPassword}
+                  onChange={(event) => {
+                    setNewUserPassword(event.target.value)
+                    setPasswordError('')
+                  }}
+                  autoComplete="new-password"
+                  placeholder="Minimal 6 karakter"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 font-mono text-sm text-gray-800 transition-colors hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#14532D]/25 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={generatePassword}
+                  className="flex-shrink-0 rounded-lg bg-[#FAF6EC] px-3 text-xs font-medium text-[#14532D] transition-colors hover:bg-[#F2EBD9] dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                >
+                  Acak
+                </button>
+              </div>
+              {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 p-4 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setPasswordTarget(null)}
+                className="rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={passwordSaving}
+                className="rounded-lg bg-[#14532D] px-4 py-2 text-sm font-medium text-[#FAF6EC] transition-colors hover:bg-[#0F3D22] disabled:opacity-50"
+              >
+                {passwordSaving ? 'Menyimpan...' : 'Simpan password'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

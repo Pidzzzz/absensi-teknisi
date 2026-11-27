@@ -1,20 +1,45 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const db = require('../db');
 
 const router = express.Router();
 const JWT_SECRET = 'absensi-secret-key-change-in-production';
 
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(__dirname, '../uploads/avatars');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, `avatar-${req.params.id}-${Date.now()}${path.extname(file.originalname) || '.jpg'}`);
+    }
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('File harus berupa gambar'));
+    }
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, username } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const stmt = db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(name, email, hashedPassword, 'technician');
+    const stmt = db.prepare('INSERT INTO users (name, email, password, role, username) VALUES (?, ?, ?, ?, ?)');
+    const result = stmt.run(name, email, hashedPassword, 'technician', username || null);
     
-    res.json({ id: result.lastInsertRowid, name, email, role: 'technician' });
+    const user = db.prepare('SELECT id, name, email, role, username FROM users WHERE id = ?').get(result.lastInsertRowid);
+    res.json(user);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -22,9 +47,10 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, identifier } = req.body;
+    const loginId = identifier || email;
     
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = db.prepare('SELECT * FROM users WHERE email = ? OR username = ?').get(loginId, loginId);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
@@ -35,14 +61,14 @@ router.post('/login', async (req, res) => {
     }
     
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, username: user.username, avatar: user.avatar } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 router.get('/users', (req, res) => {
-  const users = db.prepare('SELECT id, name, email, role FROM users').all();
+  const users = db.prepare('SELECT id, name, email, role, username FROM users').all();
   res.json(users);
 });
 
@@ -76,6 +102,36 @@ router.put('/users/:id/role', (req, res) => {
   }
 });
 
+router.put('/users/:id/password', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password, requester_id } = req.body;
+
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: 'Password minimal 6 karakter' });
+    }
+
+    const requester = db.prepare('SELECT * FROM users WHERE id = ?').get(requester_id);
+    if (!requester || requester.role !== 'admin') {
+      return res.status(403).json({ error: 'Hanya admin yang bisa mengubah password pengguna' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User tidak ditemukan' });
+    }
+
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, id);
+
+    createNotification(id, 'Password Diubah', 'Password akun Anda telah diubah oleh admin.');
+
+    res.json({ id: user.id, name: user.name });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 router.put('/profile/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -97,9 +153,24 @@ router.put('/profile/:id', async (req, res) => {
       db.prepare('UPDATE users SET name = ?, email = ? WHERE id = ?').run(name, email, id);
     }
     
-    res.json({ id: user.id, name, email, role: user.role });
+    res.json({ id: user.id, name, email, role: user.role, avatar: user.avatar });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+router.post('/avatar/:id', avatarUpload.single('avatar'), (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!req.file) return res.status(400).json({ error: 'File avatar wajib diupload' });
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatarUrl, id);
+    res.json({ avatar: avatarUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
