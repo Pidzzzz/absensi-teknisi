@@ -3,9 +3,38 @@
 @theme {
   --color-primary: #000000;
   --color-primary-light: #ffffff;
-  --color-secondary: #7c3aed;
-  --color-secondary-light: #a78bfa;
-  --color-secondary-dark: #5b21b6;
+  --color-secondary: #57534e;
+  --color-secondary-light: #d6d3d1;
+  --color-secondary-dark: #292524;
+
+  /* Netral memakai skala batu, senada dengan aksennya. */
+  --color-gray-50: #fafaf9;
+  --color-gray-100: #f5f5f4;
+  --color-gray-200: #e7e5e4;
+  --color-gray-300: #d6d3d1;
+  --color-gray-400: #a8a29e;
+  --color-gray-500: #78716c;
+  --color-gray-600: #57534e;
+  --color-gray-700: #44403c;
+  --color-gray-800: #292524;
+  --color-gray-900: #1c1917;
+  --color-gray-950: #0c0a09;
+
+  /* Dua langkah radius: 8px untuk permukaan, 12px untuk modal. */
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 0.75rem;
+
+  /* Dua langkah bayangan: garis tipis, dan satu untuk yang melayang. */
+  --shadow-md: 0 10px 20px -12px rgb(0 0 0 / 0.25);
+  --shadow-lg: 0 10px 20px -12px rgb(0 0 0 / 0.25);
+  --shadow-xl: 0 10px 20px -12px rgb(0 0 0 / 0.25);
+  --shadow-2xl: 0 10px 20px -12px rgb(0 0 0 / 0.25);
 }
 
 @variant dark (&:where(.dark, .dark *));
+
+/* Di latar gelap aksen batu terlalu gelap untuk teks. */
+.dark .text-secondary {
+  color: var(--color-secondary-light);
+}

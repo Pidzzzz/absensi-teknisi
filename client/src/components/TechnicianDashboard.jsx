@@ -6,6 +6,8 @@ import { saveAttendanceRecord, getAttendanceRecords } from '../utils/storage'
 import api from '../utils/api'
 import SyncButton from './SyncButton'
 import NotificationBell from './NotificationBell'
+import ChatBox from './ChatBox'
+import Ikon from './Ikon'
 import { useOffline } from '../hooks/useOffline'
 
 export default function TechnicianDashboard() {
@@ -50,6 +52,11 @@ export default function TechnicianDashboard() {
   const [assignmentMessage, setAssignmentMessage] = useState('')
   const [requestedChecks, setRequestedChecks] = useState(() => JSON.parse(localStorage.getItem('requested_checks') || '[]'))
 
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false)
+  const [adminUser, setAdminUser] = useState(null)
+  const [unreadChats, setUnreadChats] = useState(0)
+
   const handleRequestCheck = async (assignmentId) => {
     setLoading(true)
     setAssignmentMessage('')
@@ -78,6 +85,28 @@ export default function TechnicianDashboard() {
     loadWarnings()
     loadMyExcuses()
   }, [isOffline])
+
+  useEffect(() => {
+    const loadAdmin = async () => {
+      try {
+        const res = await api.get('/auth/users')
+        const admin = res.data.find(u => u.role === 'admin')
+        if (admin) setAdminUser(admin)
+      } catch (err) { console.error('Failed to load admin:', err) }
+    }
+    loadAdmin()
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/chat/unread/${user.id}`)
+        setUnreadChats(res.data.count)
+      } catch (err) { /* ignore */ }
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [user])
 
   useEffect(() => {
     if (user) {
@@ -487,7 +516,7 @@ export default function TechnicianDashboard() {
             {warnings.length > 0 && !hasSubmittedExcuse && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
                 <h3 className="font-semibold text-red-800 dark:text-red-200 mb-3 flex items-center gap-2">
-                  ⚠️ Pesan dari Admin
+                  <Ikon name="peringatan" className="w-5 h-5" />Pesan dari Admin
                 </h3>
                 {warnings.map(w => (
                   <div key={w.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-2 last:mb-0">
@@ -497,7 +526,7 @@ export default function TechnicianDashboard() {
                           ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
                           : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                       }`}>
-                        {w.warning_type === 'reprimand' ? '⚠️ Teguran' : '📋 Minta Keterangan'}
+                        {w.warning_type === 'reprimand' ? 'Teguran' : 'Minta Keterangan'}
                       </span>
                       <span className="text-xs text-gray-400">{w.admin_name}</span>
                     </div>
@@ -506,9 +535,9 @@ export default function TechnicianDashboard() {
                 ))}
                 <button
                   onClick={() => setExcuseModalOpen(true)}
-                  className="mt-3 w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                  className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
                 >
-                  📝 Ajukan Alasan
+                  <Ikon name="catatan" className="w-4 h-4" />Ajukan Alasan
                 </button>
               </div>
             )}
@@ -548,9 +577,9 @@ export default function TechnicianDashboard() {
                       todayExcuse.status === 'rejected' ? 'text-red-800 dark:text-red-200' :
                       'text-blue-800 dark:text-blue-200'
                     }`}>
-                      {todayExcuse.status === 'approved' ? '✅ Alasan Diterima' :
-                       todayExcuse.status === 'rejected' ? '❌ Alasan Ditolak' :
-                       '⏳ Alasan Sedang Diverifikasi'}
+                      {todayExcuse.status === 'approved' ? 'Alasan Diterima' :
+                       todayExcuse.status === 'rejected' ? 'Alasan Ditolak' :
+                       'Alasan Sedang Diverifikasi'}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {todayExcuse.status === 'approved' ? 'Ketidakhadiran Anda telah disetujui' :
@@ -565,16 +594,16 @@ export default function TechnicianDashboard() {
             {/* My Excuses History */}
             {myExcuses.filter(e => e.attendance_date !== today).length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
-                <h3 className="font-semibold text-gray-800 dark:text-white mb-3">📝 Riwayat Alasan Sebelumnya</h3>
+                <h3 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><Ikon name="catatan" className="w-4 h-4" />Riwayat Alasan Sebelumnya</h3>
                 <div className="space-y-2">
                   {myExcuses.filter(e => e.attendance_date !== today).slice(0, 3).map(excuse => (
                     <div key={excuse.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm">
                       <div>
                         <span className="font-medium text-gray-800 dark:text-white">{excuse.attendance_date}</span>
                         <span className="text-gray-500 dark:text-gray-400 ml-2">
-                          {excuse.reason === 'sakit' ? '🤒 Sakit' :
-                           excuse.reason === 'acara_keluarga' ? '👨‍👩‍👧 Keluarga' :
-                           excuse.reason === 'kendala_lapangan' ? '🚧 Lapangan' : '📝 Lainnya'}
+                          {excuse.reason === 'sakit' ? 'Sakit' :
+                           excuse.reason === 'acara_keluarga' ? 'Keluarga' :
+                           excuse.reason === 'kendala_lapangan' ? 'Lapangan' : 'Lainnya'}
                         </span>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -759,7 +788,7 @@ export default function TechnicianDashboard() {
                               </span>
                               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                                 a.type === 'PREVENTIVE MAINTENANCE'
-                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                  ? 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
                                   : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
                               }`}>
                                 {a.type || 'CORRECTIVE'}
@@ -810,7 +839,7 @@ export default function TechnicianDashboard() {
                                   : 'bg-green-500 hover:bg-green-600 text-white shadow-sm'
                               }`}
                             >
-                              {requestedChecks.includes(a.id) ? '✓ Requested Pengecekan' : 'Request Pengecekan'}
+                              {requestedChecks.includes(a.id) ? 'Requested Pengecekan' : 'Request Pengecekan'}
                             </button>
                           )}
                           <button
@@ -935,7 +964,7 @@ export default function TechnicianDashboard() {
                         <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 dark:border-gray-600 mt-2">
                           {uploadedCount < requiredCount && (
                             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg text-sm font-medium">
-                              <span>⚠️</span>
+                              <Ikon name="peringatan" className="w-4 h-4 flex-shrink-0" />
                               <span>Minimal {requiredCount} foto/dokumen harus terupload untuk submit (Saat ini: {uploadedCount}/{requiredCount})</span>
                             </div>
                           )}
@@ -1137,6 +1166,25 @@ export default function TechnicianDashboard() {
           </div>
         )
 
+      case 'chat':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 h-[calc(100vh-14rem)]">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Chat dengan Admin</h2>
+            {adminUser ? (
+              <ChatBox
+                targetUser={adminUser}
+                onClose={() => setActiveTab('home')}
+                embedded={true}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                <div className="w-8 h-8 border-2 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm mt-3">Memuat...</p>
+              </div>
+            )}
+          </div>
+        )
+
       default:
         return null
     }
@@ -1152,6 +1200,11 @@ export default function TechnicianDashboard() {
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    )},
+    { id: 'chat', label: 'Chat', icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
       </svg>
     )},
     { id: 'profile', label: 'Profil', icon: (
@@ -1189,6 +1242,11 @@ export default function TechnicianDashboard() {
             >
               {item.icon}
               <span className="font-medium">{item.label}</span>
+              {item.id === 'chat' && unreadChats > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {unreadChats}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -1259,6 +1317,7 @@ export default function TechnicianDashboard() {
                 <p className="text-gray-500 dark:text-gray-400 mt-1">
                   {activeTab === 'home' && 'Kelola absensi harian Anda'}
                   {activeTab === 'assignments' && 'Lokasi yang harus dikunjungi hari ini'}
+                  {activeTab === 'chat' && 'Chat pribadi dengan admin'}
                   {activeTab === 'profile' && 'Kelola informasi profil Anda'}
                   {activeTab === 'settings' && 'Pengaturan aplikasi'}
                 </p>
@@ -1291,7 +1350,7 @@ export default function TechnicianDashboard() {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
+              className={`relative flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
                 activeTab === item.id
                   ? 'text-secondary'
                   : 'text-gray-500 dark:text-gray-400'
@@ -1299,6 +1358,11 @@ export default function TechnicianDashboard() {
             >
               {item.icon}
               <span className="text-xs mt-1">{item.label}</span>
+              {item.id === 'chat' && unreadChats > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {unreadChats}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1432,7 +1496,7 @@ export default function TechnicianDashboard() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">📝 Ajukan Alasan</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><Ikon name="catatan" className="w-5 h-5" />Ajukan Alasan</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
@@ -1450,10 +1514,10 @@ export default function TechnicianDashboard() {
                   className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
                 >
                   <option value="">Pilih alasan...</option>
-                  <option value="sakit">🤒 Sakit</option>
-                  <option value="acara_keluarga">👨‍👩‍👧 Acara Keluarga</option>
-                  <option value="kendala_lapangan">🚧 Kendala Lapangan</option>
-                  <option value="lainnya">📝 Lainnya</option>
+                  <option value="sakit">Sakit</option>
+                  <option value="acara_keluarga">Acara Keluarga</option>
+                  <option value="kendala_lapangan">Kendala Lapangan</option>
+                  <option value="lainnya">Lainnya</option>
                 </select>
               </div>
               
@@ -1500,8 +1564,8 @@ export default function TechnicianDashboard() {
                     />
                   )}
                   {excuseReason === 'kendala_lapangan' && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      ⚠️ Wajib menjelaskan kendala dengan detail untuk verifikasi admin
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1.5">
+                      <Ikon name="peringatan" className="w-3.5 h-3.5 flex-shrink-0" />Wajib menjelaskan kendala dengan detail untuk verifikasi admin
                     </p>
                   )}
                 </div>

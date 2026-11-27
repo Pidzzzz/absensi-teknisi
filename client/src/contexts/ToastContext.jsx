@@ -1,6 +1,10 @@
 import { createContext, useContext, useState, useCallback } from 'react'
+import Ikon from '../components/Ikon'
 
 const ToastContext = createContext()
+
+// Tipe toast memakai nama ikon yang sama.
+const IKON_TOAST = { success: 'centang', error: 'silang', warning: 'peringatan', info: 'info' }
 
 export function useToast() {
   return useContext(ToastContext)
@@ -41,18 +45,14 @@ export function ToastProvider({ children }) {
               'bg-blue-500 text-white'
             }`}
           >
-            <span className="text-lg">
-              {toast.type === 'success' && '✅'}
-              {toast.type === 'error' && '❌'}
-              {toast.type === 'warning' && '⚠️'}
-              {toast.type === 'info' && 'ℹ️'}
-            </span>
+            <Ikon name={IKON_TOAST[toast.type] || 'info'} className="w-5 h-5 flex-shrink-0" />
             <span className="text-sm font-medium flex-1">{toast.message}</span>
             <button
               onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
               className="text-white/70 hover:text-white"
+              aria-label="Tutup notifikasi"
             >
-              ✕
+              <Ikon name="silang" className="w-4 h-4" />
             </button>
           </div>
         ))}

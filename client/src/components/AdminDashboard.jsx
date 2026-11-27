@@ -4,8 +4,15 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
 import api from '../utils/api'
 import NotificationBell from './NotificationBell'
+import ChatBox from './ChatBox'
+import Ikon from './Ikon'
 
 const menuItems = [
+  { id: 'chat', label: 'Chat', icon: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  )},
   { id: 'attendance', label: 'Absensi', icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -50,6 +57,8 @@ export default function AdminDashboard() {
   const [roleRequests, setRoleRequests] = useState([])
   const [locations, setLocations] = useState([])
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [searchLoc, setSearchLoc] = useState('')
+  const [toggleReasonModal, setToggleReasonModal] = useState({ open: false, location: null })
   const [selectedUser, setSelectedUser] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -94,6 +103,11 @@ export default function AdminDashboard() {
   const [warningType, setWarningType] = useState('request_explanation')
   const [excuses, setExcuses] = useState([])
 
+  // Chat state
+  const [chatTechnician, setChatTechnician] = useState(null)
+  const [conversations, setConversations] = useState([])
+  const [unreadChats, setUnreadChats] = useState(0)
+
   useEffect(() => {
     loadUsers()
     loadRoleRequests()
@@ -104,7 +118,16 @@ export default function AdminDashboard() {
     loadPasswordRequests()
     loadDailySummary()
     loadExcuses()
+    loadConversations()
   }, [])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadConversations()
+      api.get(`/chat/unread/${user.id}`).then(r => setUnreadChats(r.data.count)).catch(() => {})
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [user.id])
 
   useEffect(() => {
     loadRecords()
@@ -256,6 +279,15 @@ export default function AdminDashboard() {
       loadDailySummary()
     } catch (error) {
       console.error('Failed to review excuse:', error)
+    }
+  }
+
+  const loadConversations = async () => {
+    try {
+      const res = await api.get(`/chat/conversations/${user.id}`)
+      setConversations(res.data)
+    } catch (err) {
+      console.error('Failed to load conversations:', err)
     }
   }
 
@@ -416,6 +448,9 @@ export default function AdminDashboard() {
   const [docListExpanded, setDocListExpanded] = useState(true)
   const [draggedItem, setDraggedItem] = useState(null)
   const [dragOverItem, setDragOverItem] = useState(null)
+  const [docSearch, setDocSearch] = useState('')
+  const [reviewLocationId, setReviewLocationId] = useState(null)
+  const [docsTab, setDocsTab] = useState('items')
   
   // Review modal state
   const [reviewModalOpen, setReviewModalOpen] = useState(false)
@@ -577,11 +612,10 @@ export default function AdminDashboard() {
     if (notification.title === 'Request Pengecekan Penugasan' || notification.title === 'Upload Dokumentasi') {
       setActiveMenu('locations')
       setLocationTab('docs')
+      setDocsTab('review')
+      setReviewLocationId(null)
       setTimeout(() => {
-        const reviewSection = document.getElementById('review-section')
-        if (reviewSection) {
-          reviewSection.scrollIntoView({ behavior: 'smooth' })
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }, 300)
     }
   }
@@ -712,7 +746,7 @@ export default function AdminDashboard() {
                               onClick={() => openWarningModal(item)}
                               className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
                             >
-                              ⚠️ Tegur
+                              Tegur
                             </button>
                           )}
                         </div>
@@ -893,7 +927,7 @@ export default function AdminDashboard() {
             {passwordRequests.filter(r => r.status === 'pending').length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20">
-                  <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200">🔑 Request Ubah Password</h2>
+                  <h2 className="text-lg font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2"><Ikon name="kunci" className="w-5 h-5" />Request Ubah Password</h2>
                   <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
                     {passwordRequests.filter(r => r.status === 'pending').length} request menunggu persetujuan
                   </p>
@@ -930,7 +964,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="py-4 px-6">
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                              ⏳ Menunggu
+                              Menunggu
                             </span>
                           </td>
                           <td className="py-4 px-6">
@@ -939,13 +973,13 @@ export default function AdminDashboard() {
                                 onClick={() => handlePasswordRequest(request.id, 'approved')}
                                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium transition-colors"
                               >
-                                ✓ Setujui
+                                Setujui
                               </button>
                               <button
                                 onClick={() => handlePasswordRequest(request.id, 'rejected')}
                                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors"
                               >
-                                ✗ Tolak
+                                Tolak
                               </button>
                             </div>
                           </td>
@@ -970,10 +1004,11 @@ export default function AdminDashboard() {
                       <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Nama</th>
                       <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Email</th>
                       <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Role</th>
+                      <th className="text-left py-4 px-6 text-sm font-semibold text-gray-600 dark:text-gray-300">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {users.map((u) => (
+                    {users.filter(u => u.id !== user.id).map((u) => (
                       <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3">
@@ -1000,6 +1035,22 @@ export default function AdminDashboard() {
                             <option value="admin">Admin</option>
                           </select>
                         </td>
+                        <td className="py-4 px-6">
+                          {u.role === 'technician' && (
+                            <button
+                              onClick={() => {
+                                setChatTechnician({ id: u.id, name: u.name })
+                                setActiveMenu('chat')
+                              }}
+                              className="px-3 py-1.5 bg-secondary hover:bg-secondary-dark text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                              Chat
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1013,19 +1064,19 @@ export default function AdminDashboard() {
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-secondary to-secondary-dark p-6 rounded-xl text-white">
+              <div className="bg-secondary p-6 rounded-xl text-white">
                 <p className="text-sm opacity-80">Total Teknisi</p>
                 <p className="text-4xl font-bold mt-2">
                   {users.filter(u => u.role === 'technician').length}
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-xl text-white">
+              <div className="bg-green-600 p-6 rounded-xl text-white">
                 <p className="text-sm opacity-80">Check In Hari Ini</p>
                 <p className="text-4xl font-bold mt-2">
                   {records.filter(r => r.type === 'check-in').length}
                 </p>
               </div>
-              <div className="bg-gradient-to-br from-red-500 to-red-600 p-6 rounded-xl text-white">
+              <div className="bg-red-600 p-6 rounded-xl text-white">
                 <p className="text-sm opacity-80">Check Out Hari Ini</p>
                 <p className="text-4xl font-bold mt-2">
                   {records.filter(r => r.type === 'check-out').length}
@@ -1057,8 +1108,38 @@ export default function AdminDashboard() {
 
             <form onSubmit={handleProfileUpdate} className="space-y-6">
               <div className="flex items-center gap-6 mb-6">
-                <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center">
-                  <span className="text-white text-2xl font-bold">{profileName.charAt(0).toUpperCase()}</span>
+                <div className="relative group">
+                  <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center overflow-hidden">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white text-2xl font-bold">{profileName.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <label className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-full flex items-center justify-center cursor-pointer transition-all">
+                    <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const formData = new FormData()
+                      formData.append('avatar', file)
+                      try {
+                        const res = await api.post(`/auth/avatar/${user.id}`, formData, {
+                          headers: { 'Content-Type': 'multipart/form-data' }
+                        })
+                        setUser(prev => ({ ...prev, avatar: res.data.avatar }))
+                        const saved = JSON.parse(localStorage.getItem('user') || '{}')
+                        saved.avatar = res.data.avatar
+                        localStorage.setItem('user', JSON.stringify(saved))
+                        toast.success('Foto profil berhasil diubah')
+                      } catch (err) {
+                        toast.error(err.response?.data?.error || 'Gagal upload foto')
+                      }
+                    }} />
+                  </label>
                 </div>
                 <div>
                   <p className="font-medium text-gray-800 dark:text-white">{user.name}</p>
@@ -1179,9 +1260,11 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Dokumentasi
-                  <span className="bg-secondary/20 text-secondary text-xs px-2 py-0.5 rounded-full">
-                    {docItems.length}
-                  </span>
+                  {docUploads.filter(u => u.review_status === 'pending').length > 0 && (
+                    <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {docUploads.filter(u => u.review_status === 'pending').length}
+                    </span>
+                  )}
                 </div>
               </button>
             </div>
@@ -1239,85 +1322,267 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Location Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                  <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-800 dark:text-white">Daftar Lokasi</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{locations.length} lokasi terdaftar</p>
+                {/* Summary Card */}
+                {locations.length > 0 && (
+                  <div className="flex gap-3 text-sm">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      <span className="text-green-700 dark:text-green-400">{locations.filter(l => l.is_active !== 0).length} Aktif</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <span className="w-2 h-2 rounded-full bg-secondary"></span> Site ID
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      <span className="text-red-700 dark:text-red-400">{locations.filter(l => l.is_active === 0).length} Nonaktif</span>
                     </div>
                   </div>
-                  {locations.length === 0 ? (
-                    <div className="p-12 text-center">
-                      <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <p className="text-gray-400">Belum ada data lokasi</p>
-                      <p className="text-sm text-gray-400 mt-1">Upload file untuk menambahkan</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-700">
-                            <th className="text-left py-3 px-5 font-medium text-gray-400 dark:text-gray-500">#</th>
-                            <th className="text-left py-3 px-5 font-medium text-gray-400 dark:text-gray-500">Nama Lokasi</th>
-                            <th className="text-left py-3 px-5 font-medium text-gray-400 dark:text-gray-500">Provinsi</th>
-                            <th className="text-left py-3 px-5 font-medium text-gray-400 dark:text-gray-500">Site ID</th>
-                            <th className="text-left py-3 px-5 font-medium text-gray-400 dark:text-gray-500">Alamat</th>
-                            <th className="text-center py-3 px-5 font-medium text-gray-400 dark:text-gray-500 w-12"></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {locations.map((loc, idx) => (
-                            <tr key={loc.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                              <td className="py-3 px-5 text-gray-400 dark:text-gray-500">{idx + 1}</td>
-                              <td className="py-3 px-5">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <svg className="w-4 h-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                )}
+
+                {/* Search */}
+                {locations.length > 0 && (
+                  <div className="relative">
+                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="text"
+                      value={searchLoc}
+                      onChange={(e) => setSearchLoc(e.target.value)}
+                      placeholder="Cari lokasi..."
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-secondary/50 text-base"
+                    />
+                  </div>
+                )}
+
+                {/* Location Cards */}
+                {locations.length === 0 ? (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+                    <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <p className="text-gray-400">Belum ada data lokasi</p>
+                    <p className="text-sm text-gray-400 mt-1">Upload file untuk menambahkan</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {locations
+                      .filter(loc => {
+                        if (!searchLoc.trim()) return true
+                        const q = searchLoc.toLowerCase()
+                        return loc.name.toLowerCase().includes(q) || (loc.province || '').toLowerCase().includes(q) || (loc.site_id || '').toLowerCase().includes(q)
+                      })
+                      .map((loc) => {
+                        const active = loc.is_active !== 0
+                        return (
+                          <div key={loc.id} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 transition-all hover:shadow-md ${
+                            active ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800 opacity-80'
+                          }`}>
+                            <div className="p-5">
+                              {/* Header */}
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                    active ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                                  }`}>
+                                    <svg className={`w-5 h-5 ${active ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                     </svg>
                                   </div>
-                                  <span className="font-medium text-gray-800 dark:text-white">{loc.name}</span>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-gray-900 dark:text-white truncate text-base">{loc.name}</p>
+                                    {loc.site_id && (
+                                      <span className="text-xs font-mono text-secondary bg-secondary/10 px-2 py-0.5 rounded mt-0.5 inline-block">
+                                        {loc.site_id}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </td>
-                              <td className="py-3 px-5 text-gray-600 dark:text-gray-300">{loc.province || '-'}</td>
-                              <td className="py-3 px-5">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-secondary/10 text-secondary">
-                                  {loc.site_id || '-'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-5 text-gray-500 dark:text-gray-400 max-w-[200px] truncate" title={loc.address}>{loc.address || '-'}</td>
-                              <td className="py-3 px-5 text-center">
+                                <button
+                                  onClick={() => {
+                                    if (active) {
+                                      setToggleReasonModal({ open: true, location: loc })
+                                    } else {
+                                      api.put(`/locations/${loc.id}/toggle`).then(() => loadLocations()).catch(() => {})
+                                    }
+                                  }}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                                    active ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
+                                  }`}
+                                  title={active ? 'Nonaktifkan' : 'Aktifkan'}
+                                >
+                                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                </button>
+                              </div>
+
+                              {/* Info */}
+                              <div className="space-y-1.5 text-sm">
+                                {loc.province && (
+                                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>{loc.province}</span>
+                                  </div>
+                                )}
+                                {loc.address && (
+                                  <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400">
+                                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span className="line-clamp-2">{loc.address}</span>
+                                  </div>
+                                )}
+                                {!active && loc.deactivation_reason && (
+                                  <div className="mt-2 flex items-start gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs text-red-700 dark:text-red-400">
+                                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <span>{loc.deactivation_reason}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Actions */}
+                              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
                                 <button
                                   onClick={() => handleDeleteLocation(loc.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                  title="Hapus"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
+                                  Hapus
                                 </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                )}
+
+                {/* Deactivation Reason Modal */}
+                {toggleReasonModal.open && toggleReasonModal.location && (
+                  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+                      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Nonaktifkan Lokasi</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          {toggleReasonModal.location.name}
+                        </p>
+                      </div>
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Alasan penonaktifan <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={toggleReasonModal.reason || ''}
+                            onChange={(e) => setToggleReasonModal(prev => ({ ...prev, reason: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
+                            placeholder="Contoh: Lokasi tutup sementara, alih provider, dll."
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+                      <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                        <button
+                          onClick={() => setToggleReasonModal({ open: false, location: null })}
+                          className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const reason = toggleReasonModal.reason || ''
+                            if (!reason.trim()) {
+                              alert('Alasan penonaktifan wajib diisi')
+                              return
+                            }
+                            try {
+                              await api.put(`/locations/${toggleReasonModal.location.id}/toggle`, { reason })
+                              loadLocations()
+                              setToggleReasonModal({ open: false, location: null })
+                            } catch (e) {
+                              console.error(e)
+                            }
+                          }}
+                          className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+                        >
+                          Nonaktifkan
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* Empty search */}
+                {locations.filter(loc => {
+                  if (!searchLoc.trim()) return true
+                  const q = searchLoc.toLowerCase()
+                  return loc.name.toLowerCase().includes(q) || (loc.province || '').toLowerCase().includes(q) || (loc.site_id || '').toLowerCase().includes(q)
+                }).length === 0 && searchLoc.trim() && (
+                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                    <svg className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <p className="text-gray-400">Tidak ada lokasi untuk "<span className="font-medium">{searchLoc}</span>"</p>
+                  </div>
+                )}
               </div>
             )}
 
             {locationTab === 'assignments' && (
               <div className="space-y-6">
+                {/* Recently Deactivated Locations */}
+                {locations.filter(l => l.is_active === 0).length > 0 && (
+                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                        <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">Lokasi Nonaktif Baru</h2>
+                        <p className="text-sm text-red-500 dark:text-red-400">
+                          {locations.filter(l => l.is_active === 0).length} lokasi butuh perhatian
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {locations.filter(l => l.is_active === 0).map(loc => (
+                        <div key={loc.id} className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-800 dark:text-white truncate">{loc.name}</p>
+                            {loc.deactivation_reason && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5 truncate">{loc.deactivation_reason}</p>
+                            )}
+                            {loc.site_id && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">{loc.site_id}</span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setAssignLocationId(loc.id)
+                              document.getElementById('assign-form')?.scrollIntoView({ behavior: 'smooth' })
+                            }}
+                            className="ml-3 flex items-center gap-1.5 px-3 py-2 bg-secondary hover:bg-secondary-dark text-white text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Tugaskan
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Assign Form */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+                <div id="assign-form" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">Buat Penugasan Baru</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Tugaskan teknisi untuk mengunjungi lokasi</p>
 
@@ -1356,8 +1621,11 @@ export default function AdminDashboard() {
                         required
                       >
                         <option value="">Pilih Lokasi</option>
-                        {locations.map(loc => (
+                        {locations.filter(loc => loc.is_active !== 0).map(loc => (
                           <option key={loc.id} value={loc.id}>{loc.name} ({loc.site_id || '-'})</option>
+                        ))}
+                        {locations.filter(loc => loc.is_active === 0).map(loc => (
+                          <option key={`inactive-${loc.id}`} value={loc.id}>{loc.name} ({loc.site_id || '-'}) - Nonaktif</option>
                         ))}
                       </select>
                     </div>
@@ -1461,7 +1729,7 @@ export default function AdminDashboard() {
                               <td className="py-3 px-5">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${
                                   a.type === 'PREVENTIVE MAINTENANCE'
-                                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                    ? 'bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
                                     : 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
                                 }`}>
                                   {a.type || 'CORRECTIVE'}
@@ -1591,6 +1859,44 @@ export default function AdminDashboard() {
 
             {locationTab === 'docs' && (
               <div className="space-y-6">
+                {/* Sub-tabs: Items vs Review */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1.5 flex gap-1.5">
+                  <button
+                    onClick={() => setDocsTab('items')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                      docsTab === 'items'
+                        ? 'bg-secondary text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Item Checklist
+                  </button>
+                  <button
+                    onClick={() => setDocsTab('review')}
+                    className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                      docsTab === 'review'
+                        ? 'bg-secondary text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Review per Lokasi
+                    {docUploads.filter(u => u.review_status === 'pending').length > 0 && (
+                      <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {docUploads.filter(u => u.review_status === 'pending').length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Item Checklist Management */}
+                {docsTab === 'items' && (<>
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">Item Dokumentasi</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Buat atau import checklist dokumentasi untuk teknisi</p>
@@ -1721,14 +2027,46 @@ export default function AdminDashboard() {
                   </button>
                   {docListExpanded && (
                     <div className="border-t border-gray-100 dark:border-gray-700">
-                      {docItems.length === 0 ? (
+                      {/* Search */}
+                      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                        <div className="relative">
+                          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <input
+                            type="text"
+                            value={docSearch}
+                            onChange={(e) => setDocSearch(e.target.value)}
+                            placeholder="Cari item dokumentasi..."
+                            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-secondary/50 placeholder-gray-400"
+                          />
+                          {docSearch && (
+                            <button
+                              onClick={() => setDocSearch('')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {(() => {
+                        const filtered = docSearch
+                          ? docItems.filter(item =>
+                              item.name.toLowerCase().includes(docSearch.toLowerCase()) ||
+                              (item.description && item.description.toLowerCase().includes(docSearch.toLowerCase()))
+                            )
+                          : docItems
+                        return filtered.length === 0 ? (
                         <div className="p-12 text-center">
-                          <p className="text-gray-400">Belum ada item dokumentasi</p>
-                          <p className="text-sm text-gray-400 mt-1">Tambah item atau import dari file</p>
+                          <p className="text-gray-400">{docSearch ? 'Item tidak ditemukan' : 'Belum ada item dokumentasi'}</p>
+                          <p className="text-sm text-gray-400 mt-1">{docSearch ? 'Coba kata kunci lain' : 'Tambah item atau import dari file'}</p>
                         </div>
                       ) : (
                         <div>
-                          {docItems.map((item, idx) => (
+                          {filtered.map((item, idx) => (
                             <div
                               key={item.id}
                               draggable
@@ -1788,105 +2126,294 @@ export default function AdminDashboard() {
                             </div>
                           ))}
                         </div>
-                      )}
+                      )
+                    })()}
                     </div>
                   )}
                 </div>
+                </>)}
 
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                  <div className="p-5 border-b border-gray-100 dark:border-gray-700">
-                    <h3 id="review-section" className="font-semibold text-gray-800 dark:text-white scroll-mt-6">Review Dokumentasi Teknisi</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Validasi foto/dokumen yang diupload teknisi</p>
-                  </div>
+                {/* Review per Lokasi */}
+                {docsTab === 'review' && (
+                  <div className="space-y-4">
+                    {/* Summary Cards per Location */}
+                    {(() => {
+                      const locMap = new Map()
+                      docUploads.forEach(u => {
+                        if (u.location_id) {
+                          if (!locMap.has(u.location_id)) {
+                            locMap.set(u.location_id, {
+                              id: u.location_id,
+                              name: u.location_name,
+                              site_id: u.site_id,
+                              technician: u.user_name,
+                              visit_date: u.visit_date,
+                              total: 0, pending: 0, approved: 0, rejected: 0
+                            })
+                          }
+                          const entry = locMap.get(u.location_id)
+                          entry.total++
+                          if (u.review_status === 'pending') entry.pending++
+                          if (u.review_status === 'approved') entry.approved++
+                          if (u.review_status === 'rejected') entry.rejected++
+                        }
+                      })
+                      const locations = [...locMap.values()]
 
-                  <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex gap-2">
-                    {['pending', 'approved', 'rejected'].map(tab => {
-                      const count = docUploads.filter(u => u.review_status === tab).length
-                      return (
-                        <button
-                          key={tab}
-                          onClick={() => setReviewTab(tab)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            reviewTab === tab
-                              ? tab === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                              : tab === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                              : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {tab === 'pending' ? 'Menunggu' : tab === 'approved' ? 'Disetujui' : 'Ditolak'}
-                          {count > 0 && <span className="ml-1.5 bg-white/50 dark:bg-black/20 px-1.5 py-0.5 rounded-full text-xs">{count}</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
+                      if (locations.length === 0) {
+                        return (
+                          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+                            <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-gray-400">Belum ada dokumentasi dari teknisi</p>
+                          </div>
+                        )
+                      }
 
-                  {docUploads.filter(u => u.review_status === reviewTab).length === 0 ? (
-                    <div className="p-12 text-center">
-                      <p className="text-gray-400">Tidak ada dokumen untuk ditinjau</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {docUploads.filter(u => u.review_status === reviewTab).map((upload) => (
-                        <div key={upload.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                          <div className="flex items-start gap-4">
-                            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                              {upload.file_type?.startsWith('image/') ? (
-                                <img src={`/api/documentation/download/${upload.file_name}`} alt={upload.item_name} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(`/api/documentation/download/${upload.file_name}`, '_blank')} />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      const selectedLocation = reviewLocationId
+                        ? locations.find(l => l.id === reviewLocationId)
+                        : null
+
+                      // If location selected, show detailed view
+                      if (selectedLocation) {
+                        const locUploads = docUploads.filter(u => u.location_id === selectedLocation.id)
+                        const filteredUploads = locUploads.filter(u => u.review_status === reviewTab)
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Back button + location header */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+                              <div className="flex items-center gap-4">
+                                <button
+                                  onClick={() => setReviewLocationId(null)}
+                                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                >
+                                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 12H5m7-7l-7 7 7 7" />
+                                  </svg>
+                                </button>
+                                <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
+                                  <svg className="w-6 h-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                   </svg>
                                 </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-gray-800 dark:text-white">{upload.item_name}</span>
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary/10 text-secondary">{upload.location_name} ({upload.site_id || '-'})</span>
+                                <div>
+                                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">{selectedLocation.name}</h3>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {selectedLocation.site_id && <span className="font-mono text-secondary">{selectedLocation.site_id}</span>}
+                                    {selectedLocation.site_id && selectedLocation.technician && <span> • </span>}
+                                    {selectedLocation.technician && <span>Teknisi: {selectedLocation.technician}</span>}
+                                    {selectedLocation.visit_date && <span> • {selectedLocation.visit_date}</span>}
+                                  </p>
+                                </div>
                               </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{upload.user_name} • {new Date(upload.uploaded_at).toLocaleString('id-ID')}</p>
-                              <p className="text-xs text-gray-400 mt-1">{upload.file_name}</p>
+                              {/* Mini stats */}
+                              <div className="flex gap-3 mt-4">
+                                <div className="px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-xs font-medium text-yellow-700 dark:text-yellow-400">
+                                  {selectedLocation.pending} Menunggu
+                                </div>
+                                <div className="px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs font-medium text-green-700 dark:text-green-400">
+                                  {selectedLocation.approved} Disetujui
+                                </div>
+                                <div className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs font-medium text-red-700 dark:text-red-400">
+                                  {selectedLocation.rejected} Ditolak
+                                </div>
+                                <div className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-lg text-xs font-medium text-gray-500">
+                                  {selectedLocation.total} Total
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex flex-col items-end gap-2">
-                              {upload.review_status === 'pending' && (
-                                <>
-                                  <input type="text" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="Catatan (opsional)" className="w-48 px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-secondary" />
-                                  <div className="flex gap-2">
-                                    <button onClick={() => handleReview(upload.id, 'approved')} className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium transition-colors flex items-center gap-1.5">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                      Setujui
-                                    </button>
-                                    <button onClick={() => handleReview(upload.id, 'rejected')} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium transition-colors flex items-center gap-1.5">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                      Tolak
-                                    </button>
-                                  </div>
-                                </>
-                              )}
-                              {upload.review_status === 'approved' && (
-                                <span className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-sm font-medium flex items-center gap-1">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                  Disetujui
-                                </span>
-                              )}
-                              {upload.review_status === 'rejected' && (
-                                <div className="text-right">
-                                  <span className="px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-sm font-medium flex items-center gap-1">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    Ditolak
-                                  </span>
-                                  {upload.review_note && <p className="text-xs text-red-500 mt-1">{upload.review_note}</p>}
+
+                            {/* Status Tabs */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 flex gap-2">
+                              {['pending', 'approved', 'rejected'].map(tab => {
+                                const count = locUploads.filter(u => u.review_status === tab).length
+                                return (
+                                  <button
+                                    key={tab}
+                                    onClick={() => setReviewTab(tab)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      reviewTab === tab
+                                        ? tab === 'pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                        : tab === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                        : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                  >
+                                    {tab === 'pending' ? 'Menunggu' : tab === 'approved' ? 'Disetujui' : 'Ditolak'}
+                                    {count > 0 && <span className="ml-1.5 bg-white/50 dark:bg-black/20 px-1.5 py-0.5 rounded-full text-xs">{count}</span>}
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            {/* Uploads List */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                              {filteredUploads.length === 0 ? (
+                                <div className="p-12 text-center">
+                                  <p className="text-gray-400">Tidak ada dokumen dengan status ini</p>
+                                </div>
+                              ) : (
+                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                  {filteredUploads.map((upload) => (
+                                    <div key={upload.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                      <div className="flex items-start gap-4">
+                                        <div
+                                          className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
+                                          onClick={() => {
+                                            setLightboxUpload(upload)
+                                            setLightboxTempNote('')
+                                            setLightboxOpen(true)
+                                          }}
+                                        >
+                                          {upload.file_type?.startsWith('image/') ? (
+                                            <img src={`/api/documentation/download/${upload.file_name}`} alt={upload.item_name} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <div className="w-full h-full flex items-center justify-center">
+                                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                              </svg>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium text-gray-800 dark:text-white">{upload.item_name}</span>
+                                          </div>
+                                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{upload.user_name} • {new Date(upload.uploaded_at).toLocaleString('id-ID')}</p>
+                                          <p className="text-xs text-gray-400 mt-1 truncate">{upload.file_name}</p>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                          {upload.review_status === 'pending' && (
+                                            <>
+                                              <input
+                                                type="text"
+                                                value={reviewNote}
+                                                onChange={(e) => setReviewNote(e.target.value)}
+                                                placeholder="Catatan (opsional)"
+                                                className="w-48 px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-secondary"
+                                              />
+                                              <div className="flex gap-2">
+                                                <button
+                                                  onClick={() => handleReview(upload.id, 'approved')}
+                                                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                                                >
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                                  Setujui
+                                                </button>
+                                                <button
+                                                  onClick={() => handleReview(upload.id, 'rejected')}
+                                                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                                                >
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                  Tolak
+                                                </button>
+                                              </div>
+                                            </>
+                                          )}
+                                          {upload.review_status === 'approved' && (
+                                            <span className="px-3 py-1.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-lg text-sm font-medium flex items-center gap-1">
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                              Disetujui
+                                            </span>
+                                          )}
+                                          {upload.review_status === 'rejected' && (
+                                            <div className="text-right">
+                                              <span className="px-3 py-1.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-sm font-medium flex items-center gap-1">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                Ditolak
+                                              </span>
+                                              {upload.review_note && <p className="text-xs text-red-500 mt-1">{upload.review_note}</p>}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
                             </div>
                           </div>
+                        )
+                      }
+
+                      // Summary cards view
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {locations.map(loc => (
+                            <div
+                              key={loc.id}
+                              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-secondary/30 transition-all cursor-pointer group"
+                              onClick={() => setReviewLocationId(loc.id)}
+                            >
+                              <div className="p-5">
+                                <div className="flex items-start gap-3 mb-4">
+                                  <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-secondary/20 transition-colors">
+                                    <svg className="w-6 h-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    </svg>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white truncate">{loc.name}</h4>
+                                    {loc.site_id && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-secondary/10 text-secondary mt-0.5">
+                                        {loc.site_id}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <span>{loc.technician}</span>
+                                  </div>
+                                  {loc.visit_date && (
+                                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                      <span>{loc.visit_date}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Stats */}
+                                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+                                  <div className={`flex-1 text-center py-2 rounded-lg ${loc.pending > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                    <p className={`text-lg font-bold ${loc.pending > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'}`}>{loc.pending}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Menunggu</p>
+                                  </div>
+                                  <div className={`flex-1 text-center py-2 rounded-lg ${loc.approved > 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                    <p className={`text-lg font-bold ${loc.approved > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>{loc.approved}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Disetujui</p>
+                                  </div>
+                                  <div className={`flex-1 text-center py-2 rounded-lg ${loc.rejected > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+                                    <p className={`text-lg font-bold ${loc.rejected > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>{loc.rejected}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Ditolak</p>
+                                  </div>
+                                </div>
+
+                                <button
+                                  className="mt-4 w-full py-2.5 bg-secondary hover:bg-secondary-dark text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                  Review
+                                </button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      )
+                    })()}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1926,6 +2453,62 @@ export default function AdminDashboard() {
           </div>
         )
 
+      case 'chat':
+        const techUsers = users.filter(u => u.role === 'technician')
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-6">Chat Pribadi</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                {techUsers.length === 0 ? (
+                  <p className="text-gray-400 text-center py-8">Tidak ada teknisi</p>
+                ) : (
+                  techUsers.map((tech) => {
+                    const active = chatTechnician?.id === tech.id
+                    return (
+                      <button
+                        key={tech.id}
+                        onClick={() => setChatTechnician({ id: tech.id, name: tech.name })}
+                        className={`w-full p-4 rounded-lg text-left transition-all border ${
+                          active
+                            ? 'bg-secondary/10 border-secondary'
+                            : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                            <span className="text-gray-600 dark:text-gray-300 font-semibold">{tech.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-800 dark:text-white truncate">{tech.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{tech.email}</p>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+              <div className="h-[500px]">
+                {chatTechnician ? (
+                  <ChatBox
+                    key={chatTechnician.id}
+                    targetUser={chatTechnician}
+                    onClose={() => setChatTechnician(null)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                    <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p className="text-sm">Pilih teknisi untuk mulai chat</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+
       default:
         return null
     }
@@ -1935,14 +2518,40 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors">
       {/* Sidebar */}
       <div className="w-72 bg-primary dark:bg-gray-800 flex flex-col transition-colors">
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-800 dark:border-gray-700">
+        {/* Logo & Profile */}
+        <div className="p-5 border-b border-gray-800 dark:border-gray-700">
           <h1 className="text-xl font-bold text-white tracking-tight">Absensi Teknisi</h1>
           <p className="text-sm text-gray-400 mt-1">Admin Panel</p>
+          {/* Profile Avatar - clickable to profile */}
+          <button
+            onClick={() => setActiveMenu('profile')}
+            className="flex items-center gap-3 mt-4 w-full text-left hover:bg-white/5 rounded-lg p-2 transition-colors group"
+          >
+            <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center overflow-hidden relative flex-shrink-0">
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white font-bold text-lg">{user.name.charAt(0).toUpperCase()}</span>
+              )}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-white font-semibold truncate group-hover:text-secondary-light transition-colors">{user.name}</p>
+              <p className="text-xs text-gray-400">Administrator</p>
+            </div>
+            <svg className="w-4 h-4 text-gray-500 group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => (
             <button
               key={item.id}
@@ -1955,22 +2564,17 @@ export default function AdminDashboard() {
             >
               {item.icon}
               <span className="font-medium">{item.label}</span>
+              {item.id === 'chat' && unreadChats > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {unreadChats}
+                </span>
+              )}
             </button>
           ))}
         </nav>
 
-        {/* User & Logout */}
+        {/* Logout */}
         <div className="p-4 border-t border-gray-800 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4 px-2">
-            <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
-              <span className="text-white font-semibold">{user.name.charAt(0).toUpperCase()}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{user.name}</p>
-              <p className="text-xs text-gray-400">Administrator</p>
-            </div>
-            <NotificationBell onNotificationClick={handleNotificationClick} />
-          </div>
           <button
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
@@ -1980,6 +2584,9 @@ export default function AdminDashboard() {
             </svg>
             <span>Keluar</span>
           </button>
+          <div className="mt-2 text-center">
+            <NotificationBell onNotificationClick={handleNotificationClick} />
+          </div>
         </div>
       </div>
 
@@ -1992,6 +2599,7 @@ export default function AdminDashboard() {
                 {menuItems.find(m => m.id === activeMenu)?.label}
               </h2>
               <p className="text-gray-500 dark:text-gray-400 mt-1">
+                {activeMenu === 'chat' && 'Chat pribadi dengan teknisi'}
                 {activeMenu === 'attendance' && 'Kelola data absensi teknisi'}
                 {activeMenu === 'technicians' && 'Daftar semua teknisi terdaftar'}
                 {activeMenu === 'reports' && 'Statistik dan ringkasan data'}
@@ -2122,8 +2730,8 @@ export default function AdminDashboard() {
                             upload.review_status === 'rejected' ? 'bg-red-500 text-white' :
                             'bg-yellow-500 text-white'
                           }`}>
-                            {upload.review_status === 'approved' ? '✓ Disetujui' :
-                             upload.review_status === 'rejected' ? '✗ Ditolak' : '⏳ Menunggu'}
+                            {upload.review_status === 'approved' ? 'Disetujui' :
+                             upload.review_status === 'rejected' ? 'Ditolak' : 'Menunggu'}
                           </div>
                         </div>
                         
@@ -2399,7 +3007,7 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">⚠️ Teguran / Permintaan Keterangan</h3>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><Ikon name="peringatan" className="w-5 h-5" />Teguran / Permintaan Keterangan</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Untuk: {warningTarget.name} | Tanggal: {selectedDate}
               </p>
@@ -2413,8 +3021,8 @@ export default function AdminDashboard() {
                   onChange={(e) => setWarningType(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-secondary/50"
                 >
-                  <option value="request_explanation">📋 Minta Keterangan</option>
-                  <option value="reprimand">⚠️ Teguran</option>
+                  <option value="request_explanation">Minta Keterangan</option>
+                  <option value="reprimand">Teguran</option>
                 </select>
               </div>
               
@@ -2455,7 +3063,7 @@ export default function AdminDashboard() {
         <div className="fixed bottom-4 right-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-80 max-h-96 overflow-hidden">
             <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
-              <h4 className="font-semibold text-amber-800 dark:text-amber-200">📝 Alasan Menunggu Review</h4>
+              <h4 className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2"><Ikon name="catatan" className="w-4 h-4" />Alasan Menunggu Review</h4>
               <p className="text-xs text-amber-600 dark:text-amber-400">{excuses.length} pengajuan</p>
             </div>
             <div className="overflow-y-auto max-h-64 p-2">
@@ -2467,10 +3075,10 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                     <span className="font-medium">Alasan:</span> {
-                      excuse.reason === 'sakit' ? '🤒 Sakit' :
-                      excuse.reason === 'acara_keluarga' ? '👨‍👩‍👧 Acara Keluarga' :
-                      excuse.reason === 'kendala_lapangan' ? '🚧 Kendala Lapangan' :
-                      '📝 Lainnya'
+                      excuse.reason === 'sakit' ? 'Sakit' :
+                      excuse.reason === 'acara_keluarga' ? 'Acara Keluarga' :
+                      excuse.reason === 'kendala_lapangan' ? 'Kendala Lapangan' :
+                      'Lainnya'
                     }
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{excuse.description}</p>
@@ -2479,13 +3087,13 @@ export default function AdminDashboard() {
                       onClick={() => handleExcuseReview(excuse.id, 'approved')}
                       className="flex-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors"
                     >
-                      ✓ Terima
+                      Terima
                     </button>
                     <button
                       onClick={() => handleExcuseReview(excuse.id, 'rejected')}
                       className="flex-1 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors"
                     >
-                      ✗ Tolak
+                      Tolak
                     </button>
                   </div>
                 </div>

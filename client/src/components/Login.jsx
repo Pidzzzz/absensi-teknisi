@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { validateLoginForm, validateRegisterForm } from '../utils/validation'
+import Ikon from './Ikon'
 
 export default function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [isRegister, setIsRegister] = useState(false)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
   const [name, setName] = useState('')
+  const [username, setUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -31,9 +33,9 @@ export default function Login() {
 
     let validation
     if (isRegister) {
-      validation = validateRegisterForm(name, email, password)
+      validation = validateRegisterForm(name, identifier, password, username)
     } else {
-      validation = validateLoginForm(email, password)
+      validation = validateLoginForm(identifier, password)
     }
 
     if (!validation.valid) {
@@ -43,11 +45,11 @@ export default function Login() {
 
     try {
       if (isRegister) {
-        await register(name, email, password, 'technician')
-        const user = await login(email, password)
+        await register(name, identifier, password, 'technician', username)
+        const user = await login(identifier, password)
         navigate(user.role === 'admin' ? '/admin' : '/technician')
       } else {
-        const user = await login(email, password)
+        const user = await login(identifier, password)
         navigate(user.role === 'admin' ? '/admin' : '/technician')
       }
     } catch (err) {
@@ -65,7 +67,7 @@ export default function Login() {
       const response = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, newPassword, confirmPassword })
+        body: JSON.stringify({ email: identifier, newPassword, confirmPassword })
       })
       const data = await response.json()
       
@@ -74,7 +76,7 @@ export default function Login() {
       }
       
       setSuccessMsg(data.message)
-      setEmail('')
+      setIdentifier('')
       setNewPassword('')
       setConfirmPassword('')
     } catch (err) {
@@ -86,22 +88,22 @@ export default function Login() {
 
   const fillDemo = (role) => {
     if (role === 'admin') {
-      setEmail('admin@gmail.com')
+      setIdentifier('admin@gmail.com')
       setPassword('admin123')
       setIsRegister(false)
     } else {
-      setEmail('teknisi@gmail.com')
+      setIdentifier('teknisi@gmail.com')
       setPassword('teknisi123')
       setIsRegister(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors p-4">
+    <div className="min-h-screen flex items-center justify-center bg-stone-200 dark:bg-stone-950 transition-colors p-4">
       <div className="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md transition-colors">
         {/* Logo & Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+          <div className="w-20 h-20 bg-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
@@ -153,8 +155,8 @@ export default function Login() {
             <label className="block text-gray-700 dark:text-gray-300 mb-2">Email</label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white ${
                 fieldErrors.email 
                   ? 'border-red-500 focus:ring-red-500/50' 
@@ -245,7 +247,7 @@ export default function Login() {
           </div>
 
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 p-3 rounded-xl mb-4 text-sm">
-            <p className="font-medium mb-1">⚠️ Catatan Penting:</p>
+            <p className="font-medium mb-1 flex items-center gap-1.5"><Ikon name="peringatan" className="w-4 h-4" />Catatan Penting:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
               <li><strong>Admin</strong>: Password langsung diubah</li>
               <li><strong>Teknisi</strong>: Perlu persetujuan admin terlebih dahulu</li>
@@ -255,7 +257,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white py-3 rounded-xl hover:shadow-lg transition-all font-semibold disabled:opacity-50"
+            className="w-full bg-secondary hover:bg-secondary-dark text-white py-3 rounded-xl hover:shadow-lg transition-all font-semibold disabled:opacity-50"
           >
             {loading ? 'Mengirim...' : 'Kirim Request Ubah Password'}
           </button>
@@ -263,40 +265,63 @@ export default function Login() {
         ) : (
         <form onSubmit={handleSubmit}>
           {isRegister && (
-            <div className="mb-4">
-              <label className="block text-gray-700 dark:text-gray-300 mb-2">Nama</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white ${
-                  fieldErrors.name 
-                    ? 'border-red-500 focus:ring-red-500/50' 
-                    : 'border-gray-200 dark:border-gray-600 focus:ring-secondary/50 focus:border-secondary'
-                }`}
-                required
-              />
-              {fieldErrors.name && (
-                <p className="text-red-500 text-xs mt-1">{fieldErrors.name}</p>
-              )}
-            </div>
+            <>
+              <div className="mb-4">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Nama</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white ${
+                    fieldErrors.name 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : 'border-gray-200 dark:border-gray-600 focus:ring-secondary/50 focus:border-secondary'
+                  }`}
+                  placeholder="Nama lengkap"
+                  required
+                />
+                {fieldErrors.name && (
+                  <p className="text-red-500 text-xs mt-1">{fieldErrors.name}</p>
+                )}
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white ${
+                    fieldErrors.username 
+                      ? 'border-red-500 focus:ring-red-500/50' 
+                      : 'border-gray-200 dark:border-gray-600 focus:ring-secondary/50 focus:border-secondary'
+                  }`}
+                  placeholder="Username untuk login"
+                />
+                {fieldErrors.username && (
+                  <p className="text-red-500 text-xs mt-1">{fieldErrors.username}</p>
+                )}
+              </div>
+            </>
           )}
 
           <div className="mb-4">
-            <label className="block text-gray-700 dark:text-gray-300 mb-2">Email</label>
+            <label className="block text-gray-700 dark:text-gray-300 mb-2">
+              {isRegister ? 'Email' : 'Email atau Username'}
+            </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type={isRegister ? 'email' : 'text'}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white ${
-                fieldErrors.email 
+                fieldErrors.identifier 
                   ? 'border-red-500 focus:ring-red-500/50' 
                   : 'border-gray-200 dark:border-gray-600 focus:ring-secondary/50 focus:border-secondary'
               }`}
+              placeholder={isRegister ? 'contoh@email.com' : 'Email atau Username'}
               required
             />
-            {fieldErrors.email && (
-              <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+            {fieldErrors.identifier && (
+              <p className="text-red-500 text-xs mt-1">{fieldErrors.identifier}</p>
             )}
           </div>
 
@@ -338,7 +363,7 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-3 rounded-xl hover:shadow-lg transition-all font-semibold"
+            className="w-full bg-secondary hover:bg-secondary-dark text-white py-3 rounded-xl hover:shadow-lg transition-all font-semibold"
           >
             {isRegister ? 'Daftar Sekarang' : 'Masuk'}
           </button>
@@ -350,9 +375,9 @@ export default function Login() {
           <div className="mt-4 text-center">
             <button
               onClick={() => { setIsForgotPassword(true); setError(''); setSuccessMsg(''); setFieldErrors({}) }}
-              className="text-sm text-amber-500 hover:text-amber-600 hover:underline font-medium"
+              className="text-sm text-secondary hover:text-secondary-dark hover:underline font-medium"
             >
-              🔑 Lupa Password / Ubah Password
+              <span className="inline-flex items-center gap-1.5"><Ikon name="kunci" className="w-4 h-4" />Lupa Password / Ubah Password</span>
             </button>
           </div>
         )}
@@ -367,28 +392,18 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => fillDemo('admin')}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors font-medium text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('teknisi')}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-medium text-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Teknisi
-            </button>
-          </div>
+          <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => fillDemo('teknisi')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Demo Teknisi
+              </button>
+            </div>
         </div>
 
         <p className="mt-6 text-center text-gray-600 dark:text-gray-400">
@@ -397,7 +412,7 @@ export default function Login() {
               Kembali ke
               <button
                 onClick={() => { setIsForgotPassword(false); setError(''); setSuccessMsg(''); setFieldErrors({}) }}
-                className="text-blue-500 ml-1 hover:underline font-medium"
+                className="text-secondary ml-1 hover:underline font-medium"
               >
                 Halaman Masuk
               </button>
@@ -407,7 +422,7 @@ export default function Login() {
               Sudah punya akun?
               <button
                 onClick={() => { setIsRegister(!isRegister); setError(''); setFieldErrors({}) }}
-                className="text-blue-500 ml-1 hover:underline font-medium"
+                className="text-secondary ml-1 hover:underline font-medium"
               >
                 Masuk
               </button>
@@ -417,7 +432,7 @@ export default function Login() {
               Belum punya akun?
               <button
                 onClick={() => { setIsRegister(!isRegister); setError(''); setFieldErrors({}) }}
-                className="text-blue-500 ml-1 hover:underline font-medium"
+                className="text-secondary ml-1 hover:underline font-medium"
               >
                 Daftar
               </button>
