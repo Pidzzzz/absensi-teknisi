@@ -1258,7 +1258,7 @@ export default function TechnicianDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-900">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95">
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="grid h-9 w-9 flex-shrink-0 place-items-center overflow-hidden rounded-full bg-[#14532D] text-sm font-semibold text-[#FAF6EC]">
