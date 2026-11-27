@@ -57,6 +57,7 @@ export default function AdminDashboard() {
   const [navHover, setNavHover] = useState(false)
   const navExpanded = navOpen || navHover
   const [statusFilter, setStatusFilter] = useState('semua')
+  const [attentionOpen, setAttentionOpen] = useState(null)
   const [reportDays, setReportDays] = useState(7)
   const [reportRows, setReportRows] = useState([])
   const [reportLoading, setReportLoading] = useState(false)
@@ -781,7 +782,7 @@ export default function AdminDashboard() {
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0 space-y-6">
               {/* Absensi hari ini */}
-              <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+              <div id="tabel-absensi" className="scroll-mt-4 rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex flex-wrap items-start justify-between gap-3 p-5">
                   <div>
                     <h2 className="text-[15px] font-semibold text-gray-900 dark:text-white">Absensi hari ini</h2>
@@ -1008,20 +1009,25 @@ export default function AdminDashboard() {
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {[
                     {
+                      key: 'tidak-masuk',
                       count: dailySummary.filter((s) => s.status === 'tidak masuk').length,
                       label: 'teknisi tidak masuk',
                       hint: 'Belum ada absensi hari ini',
                       action: 'Lihat',
-                      onClick: () => setStatusFilter('tidak masuk'),
+                      items: dailySummary.filter((s) => s.status === 'tidak masuk'),
+                      onOpen: () => setStatusFilter('tidak masuk'),
                     },
                     {
+                      key: 'belum-checkout',
                       count: dailySummary.filter((s) => s.status === 'belum checkout').length,
                       label: 'belum checkout',
                       hint: 'Sudah masuk, belum pulang',
                       action: 'Lihat',
-                      onClick: () => setStatusFilter('belum checkout'),
+                      items: dailySummary.filter((s) => s.status === 'belum checkout'),
+                      onOpen: () => setStatusFilter('belum checkout'),
                     },
                     {
+                      key: 'excuses',
                       count: excuses.length,
                       label: 'alasan menunggu review',
                       hint: 'Dari pengajuan teknisi',
@@ -1029,6 +1035,7 @@ export default function AdminDashboard() {
                       onClick: () => setActiveMenu('technicians'),
                     },
                     {
+                      key: 'password',
                       count: passwordRequests.filter((r) => r.status === 'pending').length,
                       label: 'permintaan ubah password',
                       hint: 'Menunggu persetujuan admin',
@@ -1036,6 +1043,7 @@ export default function AdminDashboard() {
                       onClick: () => setActiveMenu('technicians'),
                     },
                     {
+                      key: 'chat',
                       count: unreadChats,
                       label: 'pesan belum dibaca',
                       hint: 'Balasan dari teknisi',
@@ -1045,17 +1053,49 @@ export default function AdminDashboard() {
                   ]
                     .filter((row) => row.count > 0)
                     .map((row) => (
-                      <div key={row.label} className="p-4">
-                        <p className="text-[13px] font-medium text-gray-900 dark:text-white">
-                          {row.count} {row.label}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{row.hint}</p>
-                        <button
-                          onClick={row.onClick}
-                          className="mt-1 text-[11px] font-medium text-[#14532D] underline hover:text-[#0F3D22] dark:text-[#86B998]"
-                        >
-                          {row.action}
-                        </button>
+                      <div key={row.key}>
+                        <div className="p-4">
+                          <p className="text-[13px] font-medium text-gray-900 dark:text-white">
+                            {row.count} {row.label}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">{row.hint}</p>
+                          <button
+                            onClick={() => {
+                              if (row.items) {
+                                const next = attentionOpen === row.key ? null : row.key
+                                setAttentionOpen(next)
+                                if (next) {
+                                  row.onOpen()
+                                  document
+                                    .getElementById('tabel-absensi')
+                                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                }
+                              } else {
+                                row.onClick()
+                              }
+                            }}
+                            className="mt-1 text-[11px] font-medium text-[#14532D] underline hover:text-[#0F3D22] dark:text-[#86B998]"
+                          >
+                            {row.items ? (attentionOpen === row.key ? 'Tutup' : row.action) : row.action}
+                          </button>
+                        </div>
+                        {row.items && attentionOpen === row.key && (
+                          <div className="space-y-1 border-t border-gray-100 bg-gray-50/60 px-4 py-2 dark:border-gray-700 dark:bg-gray-900/30">
+                            {row.items.map((item) => (
+                              <div key={item.user_id} className="flex items-center justify-between gap-2 py-1">
+                                <span className="min-w-0 truncate text-[12px] text-gray-700 dark:text-gray-300">
+                                  {item.name}
+                                </span>
+                                <button
+                                  onClick={() => openWarningModal(item)}
+                                  className="flex-shrink-0 text-[11px] font-medium text-[#14532D] underline hover:text-[#0F3D22] dark:text-[#86B998]"
+                                >
+                                  Tegur
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>
