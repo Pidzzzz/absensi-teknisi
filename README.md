@@ -1,7 +1,7 @@
 # 📋 Absensi & Dokumentasi Teknisi (Tech Attendance System)
 
 <p align="center">
-  <img src="logo.jpg" alt="Tech Attendance Logo" width="200" />
+  <img src="logo.png" alt="Absensi Teknisi" width="160" />
 </p>
 
 [![React](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=white&style=flat-square)](#)
