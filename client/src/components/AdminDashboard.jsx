@@ -110,6 +110,7 @@ export default function AdminDashboard() {
   
   // Daily attendance summary state
   const [dailySummary, setDailySummary] = useState([])
+  const [todayWarnings, setTodayWarnings] = useState([])
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [warningModalOpen, setWarningModalOpen] = useState(false)
   const [warningTarget, setWarningTarget] = useState(null)
@@ -162,6 +163,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadRecords()
     loadDailySummary()
+    loadTodayWarnings()
   }, [selectedDate, selectedUser])
 
   useEffect(() => {
@@ -273,6 +275,15 @@ export default function AdminDashboard() {
     setWarningModalOpen(true)
   }
 
+  const loadTodayWarnings = async () => {
+    try {
+      const response = await api.get(`/attendance/warnings?date=${selectedDate}`)
+      setTodayWarnings(response.data)
+    } catch (error) {
+      console.error('Failed to load warnings:', error)
+    }
+  }
+
   const sendWarning = async () => {
     if (!warningMessage.trim()) {
       toast.warning('Pesan wajib diisi')
@@ -288,6 +299,7 @@ export default function AdminDashboard() {
       })
       setWarningModalOpen(false)
       toast.success('Teguran/permintaan keterangan berhasil dikirim')
+      loadTodayWarnings()
     } catch (error) {
       console.error('Failed to send warning:', error)
     }
@@ -655,8 +667,14 @@ export default function AdminDashboard() {
     if (r.location_name && !locationByUser[r.user_id]) locationByUser[r.user_id] = r.location_name
   })
   const filteredSummary = dailySummary.filter((s) => statusFilter === 'semua' || s.status === statusFilter)
+  const warnedIds = new Set(todayWarnings.map((w) => w.user_id))
+  const pendingTidakMasuk = dailySummary.filter((s) => s.status === 'tidak masuk' && !warnedIds.has(s.user_id))
+  const pendingBelumCheckout = dailySummary.filter(
+    (s) => s.status === 'belum checkout' && !warnedIds.has(s.user_id),
+  )
   const attentionCount =
-    dailySummary.filter((s) => s.status === 'tidak masuk' || s.status === 'belum checkout').length +
+    pendingTidakMasuk.length +
+    pendingBelumCheckout.length +
     excuses.length +
     passwordRequests.filter((r) => r.status === 'pending').length
   const locationRows = Object.values(
@@ -996,7 +1014,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {attentionCount > 0 && (
               <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div className="flex items-center justify-between border-b border-gray-100 p-5 dark:border-gray-700">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Perlu perhatian</h3>
@@ -1010,20 +1027,20 @@ export default function AdminDashboard() {
                   {[
                     {
                       key: 'tidak-masuk',
-                      count: dailySummary.filter((s) => s.status === 'tidak masuk').length,
+                      count: pendingTidakMasuk.length,
                       label: 'teknisi tidak masuk',
                       hint: 'Belum ada absensi hari ini',
                       action: 'Lihat',
-                      items: dailySummary.filter((s) => s.status === 'tidak masuk'),
+                      items: pendingTidakMasuk,
                       onOpen: () => setStatusFilter('tidak masuk'),
                     },
                     {
                       key: 'belum-checkout',
-                      count: dailySummary.filter((s) => s.status === 'belum checkout').length,
+                      count: pendingBelumCheckout.length,
                       label: 'belum checkout',
                       hint: 'Sudah masuk, belum pulang',
                       action: 'Lihat',
-                      items: dailySummary.filter((s) => s.status === 'belum checkout'),
+                      items: pendingBelumCheckout,
                       onOpen: () => setStatusFilter('belum checkout'),
                     },
                     {
@@ -1098,9 +1115,13 @@ export default function AdminDashboard() {
                         )}
                       </div>
                     ))}
+                  {attentionCount === 0 && (
+                    <p className="px-4 py-6 text-center text-xs text-gray-400">
+                      Tidak ada yang menunggu tindakan.
+                    </p>
+                  )}
                 </div>
               </div>
-              )}
               {locationRows.length > 0 && (
                 <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Per lokasi</h3>

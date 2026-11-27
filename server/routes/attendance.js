@@ -231,6 +231,25 @@ router.post('/warnings', (req, res) => {
   }
 });
 
+router.get('/warnings', (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: 'Tanggal wajib diisi' });
+
+    const warnings = db.prepare(`
+      SELECT aw.*, u.name as technician_name
+      FROM absence_warnings aw
+      JOIN users u ON aw.user_id = u.id
+      WHERE aw.attendance_date = ?
+      ORDER BY aw.created_at DESC
+    `).all(date);
+
+    res.json(warnings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get warnings for a user on specific date
 router.get('/warnings/:userId/:date', (req, res) => {
   try {
