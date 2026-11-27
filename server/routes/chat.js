@@ -11,12 +11,15 @@ router.get('/conversations/:userId', (req, res) => {
 
     if (user.role === 'admin') {
       const conversations = db.prepare(`
-        SELECT c.*, u.id as technician_id, u.name as technician_name, u.email as technician_email
+        SELECT c.*, u.id as technician_id, u.name as technician_name, u.email as technician_email,
+          (SELECT m.content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) as last_message,
+          (SELECT m.sender_id FROM messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) as last_sender_id,
+          (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id != ? AND m.is_read = 0) as unread_count
         FROM conversations c
         JOIN users u ON c.technician_id = u.id
         WHERE c.admin_id = ?
         ORDER BY c.last_message_at DESC
-      `).all(userId);
+      `).all(userId, userId);
       return res.json(conversations);
     }
 
@@ -126,7 +129,8 @@ router.get('/unread/:userId', (req, res) => {
       result = db.prepare(`
         SELECT COUNT(*) as count FROM messages m
         JOIN conversations c ON m.conversation_id = c.id
-        WHERE c.admin_id = ? AND m.sender_id != ? AND m.is_read = 0
+        JOIN users sender ON m.sender_id = sender.id
+        WHERE c.admin_id = ? AND m.sender_id != ? AND m.is_read = 0 AND sender.role = 'technician'
       `).get(userId, userId);
     } else {
       result = db.prepare(`

@@ -121,6 +121,22 @@ export default function AdminDashboard() {
   const [conversations, setConversations] = useState([])
   const [unreadChats, setUnreadChats] = useState(0)
 
+  // Buka chat langsung ke percakapan terakhir saat menu Chat dipilih.
+  useEffect(() => {
+    if (activeMenu !== 'chat' || chatTechnician) return
+    if (conversations.length > 0) {
+      const first = conversations[0]
+      setChatTechnician({
+        id: first.technician_id,
+        name: first.technician_name,
+        email: first.technician_email,
+      })
+      return
+    }
+    const fallback = users.find((u) => u.role === 'technician')
+    if (fallback) setChatTechnician({ id: fallback.id, name: fallback.name, email: fallback.email })
+  }, [activeMenu, chatTechnician, conversations, users])
+
   useEffect(() => {
     loadUsers()
     loadRoleRequests()
@@ -1018,6 +1034,13 @@ export default function AdminDashboard() {
                       hint: 'Menunggu persetujuan admin',
                       action: 'Setujui',
                       onClick: () => setActiveMenu('technicians'),
+                    },
+                    {
+                      count: unreadChats,
+                      label: 'pesan belum dibaca',
+                      hint: 'Balasan dari teknisi',
+                      action: 'Balas',
+                      onClick: () => setActiveMenu('chat'),
                     },
                   ]
                     .filter((row) => row.count > 0)
@@ -2849,21 +2872,31 @@ export default function AdminDashboard() {
         )
 
       case 'chat':
-        const techUsers = users.filter(u => u.role === 'technician')
+        const techRows = users
+          .filter((u) => u.role === 'technician')
+          .map((u) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            conv: conversations.find((c) => c.technician_id === u.id),
+          }))
+          .sort((a, b) =>
+            String(b.conv?.last_message_at || '').localeCompare(String(a.conv?.last_message_at || '')),
+          )
         return (
           <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
             <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Chat Pribadi</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                {techUsers.length === 0 ? (
+                {techRows.length === 0 ? (
                   <p className="text-gray-400 text-center py-8">Tidak ada teknisi</p>
                 ) : (
-                  techUsers.map((tech) => {
+                  techRows.map((tech) => {
                     const active = chatTechnician?.id === tech.id
                     return (
                       <button
                         key={tech.id}
-                        onClick={() => setChatTechnician({ id: tech.id, name: tech.name })}
+                        onClick={() => setChatTechnician({ id: tech.id, name: tech.name, email: tech.email })}
                         className={`w-full p-4 rounded-lg text-left transition-all border ${
                           active
                             ? 'bg-[#E8EFE8] border-[#14532D] dark:bg-[#1F3A2A]'
@@ -2876,8 +2909,17 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-800 dark:text-white truncate">{tech.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{tech.email}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {tech.conv?.last_message
+                                ? `${tech.conv.last_sender_id === user.id ? 'Anda: ' : ''}${tech.conv.last_message}`
+                                : tech.email}
+                            </p>
                           </div>
+                          {tech.conv?.unread_count > 0 && (
+                            <span className="rounded-full bg-[#F2C230] px-2 py-0.5 text-[11px] font-semibold text-[#3F2D00]">
+                              {tech.conv.unread_count}
+                            </span>
+                          )}
                         </div>
                       </button>
                     )
