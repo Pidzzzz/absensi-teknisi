@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useToast } from '../contexts/ToastContext'
-import { saveAttendanceRecord, getAttendanceRecords } from '../utils/storage'
+import { saveAttendanceRecord, getAttendanceRecords, markRecordsSynced } from '../utils/storage'
 import api from '../utils/api'
 import SyncButton from './SyncButton'
 import NotificationBell from './NotificationBell'
@@ -165,7 +165,8 @@ export default function TechnicianDashboard() {
       try {
         const response = await api.get(`/attendance?user_id=${user.id}`)
         const serverRecords = response.data.map(r => ({ ...r, synced: true, source: 'server' }))
-        const merged = [...userLocalRecords.filter(r => r.synced), ...serverRecords]
+        // Server adalah sumber utama; lokal hanya ditampilkan bila belum terkirim.
+        const merged = [...userLocalRecords.filter(r => !r.synced), ...serverRecords]
         const unique = merged.filter((r, i, self) => 
           self.findIndex(s => s.id === r.id) === i
         )
@@ -435,11 +436,12 @@ export default function TechnicianDashboard() {
         lng: location?.lng
       }
 
-      saveAttendanceRecord(record)
-      
-      // Auto sync to server
+      const saved = saveAttendanceRecord(record)
+
+      // Auto sync to server; tandai lokal sudah terkirim agar tidak dobel saat Sync
       try {
         await api.post('/attendance/sync', { records: [{ ...record, synced: 1 }] })
+        markRecordsSynced([saved.id])
       } catch (syncErr) {
         console.log('Sync failed, will sync later:', syncErr)
       }
@@ -462,11 +464,12 @@ export default function TechnicianDashboard() {
         lng: location?.lng
       }
 
-      saveAttendanceRecord(record)
-      
-      // Auto sync to server
+      const saved = saveAttendanceRecord(record)
+
+      // Auto sync to server; tandai lokal sudah terkirim agar tidak dobel saat Sync
       try {
         await api.post('/attendance/sync', { records: [{ ...record, synced: 1 }] })
+        markRecordsSynced([saved.id])
       } catch (syncErr) {
         console.log('Sync failed, will sync later:', syncErr)
       }

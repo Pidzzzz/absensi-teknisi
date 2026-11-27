@@ -8,9 +8,14 @@ router.post('/sync', (req, res) => {
     const { records } = req.body;
     
     const insert = db.prepare('INSERT INTO attendance (user_id, type, timestamp, lat, lng, synced, assignment_id, location_id) VALUES (?, ?, ?, ?, ?, 1, ?, ?)');
+    const exists = db.prepare('SELECT id FROM attendance WHERE user_id = ? AND type = ? AND timestamp = ?');
     
+    let inserted = 0;
     const insertMany = db.transaction((items) => {
       for (const item of items) {
+        // Lewati kiriman ulang (sync ganda / retry) dengan user, tipe, dan waktu yang sama.
+        if (exists.get(item.user_id, item.type, item.timestamp)) continue;
+
         insert.run(
           item.user_id,
           item.type,
@@ -20,11 +25,12 @@ router.post('/sync', (req, res) => {
           item.assignment_id !== undefined ? item.assignment_id : null,
           item.location_id !== undefined ? item.location_id : null
         );
+        inserted += 1;
       }
     });
     
     insertMany(records);
-    res.json({ message: 'Sync successful', count: records.length });
+    res.json({ message: 'Sync successful', count: inserted, skipped: records.length - inserted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
